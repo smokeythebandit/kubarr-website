@@ -1,13 +1,12 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { strict as assert } from 'node:assert';
 import { runInNewContext } from 'node:vm';
 import { createHash } from 'node:crypto';
-import { supportedApps } from '../src/supported-apps.js';
 
-const pages = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
+const pages = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
 const featurePages = [['observability', 'Observability', 'Logging'], ['isolation', 'Isolation', 'Keep app workloads organized'], ['modularity', 'Modularity', 'Chart-based apps are independent components']];
 const featureDescriptions = {
   'features/': "Explore Kubarr's chart-backed app catalog, Kubernetes deployment, monitoring, access controls and shared storage.",
@@ -20,29 +19,6 @@ for (const [name, hash] of [
   ['mark.svg', '27a54d49831ca76e15157453ed54970da78651fab96292e66d92542aed4baf91'],
   ['kubernetes-icon-color.svg', 'ff5427cfeeff39e82834ab1b4fe3ed61fc08596225a17eed56adc04f7cc1f712'],
 ]) assert.equal(createHash('sha256').update(await readFile(`src/assets/${name}`)).digest('hex'), hash);
-// Independent snapshot of non-system chart names under the six user-app categories.
-// Provenance: kubarr-charts/*/*/Chart.yaml kubarr.io/category/system/hidden;
-// Kubarr/code/api/src/services/catalog.rs parses these flags for the catalog.
-const expected = {
-  development: ['jenkins', 'redmine', 'scm-manager'],
-  'download-client': ['deluge', 'qbittorrent', 'rutorrent', 'sabnzbd', 'transmission'],
-  indexer: ['jackett'],
-  'media-manager': ['jellyseerr', 'radarr', 'sonarr'],
-  'media-server': ['frigate', 'immich', 'jellyfin', 'plex'],
-  monitoring: ['grafana', 'headlamp'],
-};
-const apps = supportedApps.map(({ id }) => id);
-assert.deepEqual([...apps].sort(), Object.values(expected).flat().sort(), 'catalog snapshot coverage');
-assert.equal(new Set(apps).size, apps.length, 'no duplicate logos');
-for (const app of apps) {
-  const svg = await readFile(`src/assets/apps/${app}.svg`, 'utf8');
-  assert.match(svg, /<svg\b[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
-  assert.doesNotMatch(svg, /<script\b|<foreignObject\b|<iframe\b|<object\b|<animate\b|<set\b|\bon[a-z]+\s*=|@import|<!ENTITY|<\?xml-stylesheet/i, `${app}: active content`);
-  for (const match of svg.matchAll(/\b(?:href|src)\s*=\s*["']([^"']+)["']/gi))
-    assert.match(match[1], /^(?:#[\w.-]+|data:image\/png;base64,[A-Za-z0-9+/=\s]+)$/, `${app}: external reference`);
-  for (const match of svg.matchAll(/url\(\s*["']?([^)'"\s]+)["']?\s*\)/gi))
-    assert.match(match[1], /^#[\w.-]+$/, `${app}: external CSS reference`);
-}
 const css = await readFile('src/assets/site.css', 'utf8');
 assert.match(css, /:root\.dark\{/);
 assert.match(css, /\.home \.hero-icons\{[^}]*pointer-events:none/);
@@ -56,7 +32,6 @@ assert.ok(mobile.includes('--move-x:var(--sdx);--move-y:var(--sdy)'));
 assert.match(css, /@keyframes icon-breathe\{0%\{transform:translate3d\(calc\(var\(--move-x\) \* -\.5\)/);
 assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.home \.float-icon img,\.home \.icon-wobble\{animation:none\}\.icon-entrance-ready \.home \.hero-line-first,[^}]*\.hero-install,[^}]*\.icon-entrance\{visibility:visible;opacity:1;transform:none;animation:none\}\}/);
 assert.doesNotMatch(css, /\.home \.float-icon:nth-child|\.home \.float-icon[^{}]*\{[^}]*display:none/);
-for (const { depth } of supportedApps) assert.ok(depth >= 0 && depth <= 2);
 
 // Pre-paint theme initialization stays synchronous and respects saved/system preferences.
 const themeScript = await readFile('src/assets/theme.js', 'utf8');
@@ -102,13 +77,20 @@ try {
     assert.match(home, /curl -fsSL https:\/\/kubarr\.com\/install\.sh \| sudo bash/);
     assert.match(home, /aria-label="Copy install command"/);
     assert.equal([...home.matchAll(/<section\b/g)].length, 1);
-    assert.equal([...home.matchAll(/class="float-icon icon-depth-[012]"/g)].length, apps.length);
+    assert.equal([...home.matchAll(/class="float-icon icon-depth-[012]"/g)].length, 0);
     assert.match(home, /class="hero-icons" aria-hidden="true"/);
     assert.ok(home.indexOf('classList.add("icon-entrance-ready")') < home.indexOf('assets/site.css'), `${mode}: pre-paint entrance flag`);
     assert.doesNotMatch(home, /is-entering/);
-    assert.equal([...home.matchAll(/--arrival-delay:/g)].length, apps.length);
-    for (const app of apps) assert.ok(home.includes(`src="${base}assets/apps/${app}.svg"`));
+    assert.equal([...home.matchAll(/--arrival-delay:/g)].length, 0);
+    assert.match(home, /data-catalog-source="pending"/);
+    assert.doesNotMatch(home, /assets\/apps\/|raw\.githubusercontent\.com/);
+    const assetFiles = await readdir(join(out, 'assets'), { recursive: true });
+    assert.ok(!assetFiles.some(file => /(^|\/)apps(\/|$)/.test(file)), `${mode}: no bundled app icons`);
     const features = await readFile(join(out, 'features/index.html'), 'utf8');
+    const apps = await readFile(join(out, 'apps/index.html'), 'utf8');
+    assert.ok(apps.includes('<title>Apps · Kubarr</title>') && apps.includes('Browse the live Kubarr chart catalog'));
+    assert.ok(apps.includes('Loading apps from GitHub') && apps.includes('href="' + base + 'apps/" aria-current="page">Apps</a>'));
+    assert.doesNotMatch(apps, /class="apps-card"|raw\.githubusercontent\.com/);
     assert.match(features, /aria-label="Features"/);
     for (const [id, label, text] of featurePages) {
       assert.ok(features.includes(`href="${base}features/${id}/">${label}</a>`));
@@ -118,8 +100,12 @@ try {
     assert.doesNotMatch(features, /feature-card|features-next|opt-in private config PVC/);
     const appJs = await readFile(join(out, 'assets/app.js'), 'utf8');
     assert.ok(appJs.includes('Copy failed') && appJs.includes('selectNodeContents') && appJs.includes('clipboard'));
+    assert.doesNotMatch(appJs, /assets\/apps\/|catalog:sync|\.svg\?raw/);
+    for (const file of assetFiles.filter(file => /\.(?:js|css)$/.test(file)))
+      assert.doesNotMatch(await readFile(join(out, 'assets', file), 'utf8'), /(?:\/)?assets\/apps\//, `${mode}: local app icon reference in ${file}`);
     for (const page of pages) {
       const html = await readFile(join(out, page, 'index.html'), 'utf8');
+      assert.doesNotMatch(html, /(?:\/)?assets\/apps\//, `${mode}/${page}: local app icon reference`);
       const canonical = `${origin}${base}${page}`;
       assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`) && sitemap.includes(`<loc>${canonical}</loc>`), `${mode}/${page}: canonical/sitemap`);
       if (page.startsWith('features/')) {
@@ -156,7 +142,7 @@ try {
       assert.ok(html.includes(`src="${base}assets/app.js"`), `${mode}/${page}: hydration bundle`);
       for (const required of ['<html lang="en">', '<meta name="description"', '<title>', '<main ', 'id="main"', 'href="#main"', 'aria-label="Main navigation"', 'aria-expanded="false"']) assert.ok(html.includes(required), `${mode}/${page}: missing ${required}`);
       assert.doesNotMatch(html, /class="theme-control"|<option value="(?:system|light|dark)"/);
-      assert.match(html, /<nav class="nav[\s\S]*?Home[\s\S]*?Features[\s\S]*?GitHub ↗/);
+      assert.match(html, /<nav class="nav[\s\S]*?Home[\s\S]*?Features[\s\S]*?Apps[\s\S]*?GitHub ↗/);
       const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
       assert.equal(new Set(ids).size, ids.length, `${mode}/${page}: duplicate IDs`);
       for (const match of html.matchAll(/href="#([^"]+)"|aria-controls="([^"]+)"/g)) assert.ok(ids.includes(match[1] ?? match[2]));

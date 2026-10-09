@@ -12,7 +12,7 @@ const base = origin === 'https://kubarr.com' ? '/' : '/kubarr-website/';
 const destination = process.env.OUT_DIR ?? 'dist';
 await rm(destination, { recursive: true, force: true });
 await mkdir(join(destination, 'assets'), { recursive: true });
-await cp('src/assets', join(destination, 'assets'), { recursive: true });
+await cp('src/assets', join(destination, 'assets'), { recursive: true, filter: path => !path.replaceAll('\\', '/').endsWith('/assets/apps') });
 
 await build({ entryPoints: ['src/client.jsx'], bundle: true, minify: true, format: 'esm', outfile: join(destination, 'assets/app.js'), jsx: 'automatic' });
 // Keep the temporary SSR bundle beside this package so external React resolves
@@ -30,6 +30,7 @@ try {
     'features/observability/': ['Observability · Kubarr', 'View application logs, track CPU and memory usage, and see network activity and connections live.'],
     'features/isolation/': ['Isolation · Kubarr', 'Explore Kubarr app containers, Cilium-compatible network policies, shared storage and per-app VPN options.'],
     'features/modularity/': ['Modularity · Kubarr', 'Install and manage independent chart-based applications with Kubarr.'],
+    'apps/': ['Apps · Kubarr', 'Browse the live Kubarr chart catalog, search apps and explore their GitHub chart sources.'],
     'docs/': ['Documentation · Kubarr', 'Start here for Kubarr installation and architecture documentation.'],
     'docs/getting-started/': ['Getting started · Kubarr', 'Prepare a Kubernetes cluster and bootstrap Kubarr with its CLI installer.'],
     'docs/how-it-works/': ['How it works · Kubarr', "Understand Kubarr's gateway, frontend, API, worker, Kubernetes workloads and storage."],

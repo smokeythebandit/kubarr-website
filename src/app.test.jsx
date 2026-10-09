@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { App, command, routes } from './app.jsx';
-import { supportedApps } from './supported-apps.js';
-import { arrivalDelays, heroTiming, lastIconEnd, secondStart, installStart } from './hero-timing.js';
+import { arrivalDelays, curatedIds, heroTiming, lastIconEnd, secondStart, installStart } from './hero-timing.js';
+import { normalizeCatalog } from './live-catalog.js';
+import { AppIconField } from './app-icon-field.jsx';
 const css = readFileSync('src/assets/site.css', 'utf8');
 const shipPaths = [
   'M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1',
@@ -19,6 +20,7 @@ const shipPaths = [
 const execCommand = document.execCommand;
 beforeEach(() => {
   window.kubarrTheme = { get: () => 'system', set: () => {} };
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503 })));
 });
 afterEach(() => {
   cleanup();
@@ -32,37 +34,35 @@ afterEach(() => {
 const home = () => render(<App route="" base="/kubarr-website/"/>);
 
 describe('homepage app icon field', () => {
-  it('keeps SSR and hydration markup identical with a stable shuffled icon stagger', () => {
+  it('keeps SSR and hydration empty while retaining a stable shuffled stagger for arriving icons', () => {
     const html = renderToString(<App route="" base="/kubarr-website/"/>);
-    expect(html).toContain('class="icon-entrance"');
-    expect(html).toContain('--arrival-delay');
+    expect(html).toContain('data-catalog-source="pending"');
+    expect(html).not.toContain('class="icon-entrance"');
+    expect(html).not.toContain('assets/apps/');
     const random = vi.spyOn(Math, 'random');
-    const { container, rerender } = home();
+    const { container } = home();
     const field = container.querySelector('.hero-icons');
     expect(field.classList.contains('is-entering')).toBe(false);
-    const icons = [...field.querySelectorAll('.float-icon')];
-    const delays = icons.map(icon => Number.parseInt(icon.querySelector('.icon-entrance').style.getPropertyValue('--arrival-delay')));
-    expect(delays).toHaveLength(18);
-    expect(new Set(delays).size).toBe(18);
+    expect(field.querySelectorAll('.float-icon')).toHaveLength(0);
+    const delays = Object.values(arrivalDelays);
+    expect(delays).toHaveLength(curatedIds.length);
+    expect(new Set(delays).size).toBe(curatedIds.length);
     const sorted = [...delays].sort((a, b) => a - b);
     expect(sorted[0]).toBe(0);
-    expect(sorted.at(-1)).toBeGreaterThanOrEqual(17 * 80);
-    expect(sorted.at(-1)).toBeLessThanOrEqual(17 * 160);
+    expect(sorted.at(-1)).toBeGreaterThanOrEqual((curatedIds.length - 1) * 80);
+    expect(sorted.at(-1)).toBeLessThanOrEqual((curatedIds.length - 1) * 160);
     for (let i = 1; i < sorted.length; i++) {
       expect(sorted[i] - sorted[i - 1]).toBeGreaterThanOrEqual(80);
       expect(sorted[i] - sorted[i - 1]).toBeLessThanOrEqual(160);
     }
-    expect(delays).not.toEqual(sorted);
-    rerender(<App route="" base="/kubarr-website/"/>);
-    expect(icons.map(icon => Number.parseInt(icon.querySelector('.icon-entrance').style.getPropertyValue('--arrival-delay')))).toEqual(delays);
+    if (curatedIds.length > 2) expect(delays).not.toEqual(sorted);
     expect(random).not.toHaveBeenCalled(); // Nothing waits for a hydration effect to begin.
   });
 
   it('spaces the first-paint headline timeline while keeping icons independent, with no-JS and reduced-motion fallbacks', () => {
     const { container } = home();
     const hero = container.querySelector('.hero');
-    const delays = [...container.querySelectorAll('.icon-entrance')].map(icon => parseInt(icon.style.getPropertyValue('--arrival-delay'), 10));
-    expect(delays).toEqual(arrivalDelays);
+    const delays = Object.values(arrivalDelays);
     expect(Math.max(...delays) + heroTiming.iconDuration).toBe(lastIconEnd);
     expect(lastIconEnd).toBeLessThan(secondStart);
     expect(secondStart - lastIconEnd).toBe(heroTiming.breathingPause);
@@ -108,13 +108,11 @@ describe('homepage app icon field', () => {
     expect(html).not.toContain('visibility:hidden'); // Only the pre-paint CSS gates controls.
   });
 
-  it('keeps the supported catalog logos decorative while leaving the headline and install control interactive', () => {
+  it('leaves the headline and install control interactive without a catalog', () => {
     const { container } = home();
     const field = container.querySelector('.hero-icons');
     expect(field.getAttribute('aria-hidden')).toBe('true');
-    expect(Array.from(field.querySelectorAll('img'), img => img.getAttribute('src')).sort()).toEqual(
-      supportedApps.map(({ id }) => `/kubarr-website/assets/apps/${id}.svg`).sort());
-    expect(Array.from(field.querySelectorAll('img'), img => img.getAttribute('alt'))).toEqual(Array(supportedApps.length).fill(''));
+    expect(field.querySelectorAll('img')).toHaveLength(0);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Your media stack on Kubernetes');
     expect(screen.getByRole('heading', { name: 'Your media stack on Kubernetes' })).toBeTruthy();
     expect(container.querySelector('.hero-line-first').textContent).toBe('Your media stack ');
@@ -124,10 +122,12 @@ describe('homepage app icon field', () => {
   });
 
   it('gives each catalog logo stable desktop and mobile anchors without event-driven routes', () => {
-    const { container } = home();
+    const catalog = { ...normalizeCatalog(curatedIds.map(id => ({ id, group: 'media', name: id, category: 'media', icon: true })), 'a'.repeat(40)), source: 'live', error: null };
+    const { container } = render(<AppIconField catalog={catalog}/>);
     const icons = [...container.querySelectorAll('.float-icon')];
-    expect(icons).toHaveLength(18);
-    expect(new Set(icons.map(icon => icon.dataset.app)).size).toBe(18);
+    expect(icons).toHaveLength(curatedIds.length);
+    expect(new Set(icons.map(icon => icon.dataset.app)).size).toBe(curatedIds.length);
+    expect([...container.querySelectorAll('.float-icon img')].every(img => img.src.startsWith('https://raw.githubusercontent.com/smokeythebandit/kubarr-charts/'))).toBe(true);
     for (const icon of icons) {
       for (const property of ['--x', '--y', '--mx', '--my'])
         expect(icon.style.getPropertyValue(property)).toMatch(/^\d+%$/);
@@ -168,6 +168,7 @@ describe('shared main navigation', () => {
   const expected = [
     ['Home', '/kubarr-website/'],
     ['Features', '/kubarr-website/features/'],
+    ['Apps', '/kubarr-website/apps/'],
     ['GitHub ↗', 'https://github.com/smokeythebandit/Kubarr'],
   ];
 
@@ -178,9 +179,9 @@ describe('shared main navigation', () => {
       const nav = screen.getByRole('navigation', { name: 'Main navigation' });
       const links = Array.from(nav.querySelectorAll('a'));
       expect(links.map(link => [link.textContent, link.getAttribute('href')])).toEqual(expected);
-      const active = route === '' ? 'Home' : route.startsWith('features/') ? 'Features' : undefined;
+      const active = route === '' ? 'Home' : route.startsWith('features/') ? 'Features' : route === 'apps/' ? 'Apps' : undefined;
       expect(links.filter(link => link.hasAttribute('aria-current')).map(link => [link.textContent, link.getAttribute('aria-current')])).toEqual(active ? [[active, 'page']] : []);
-      expect(nav.querySelector('.nav-github')).toBe(links[2]);
+      expect(nav.querySelector('.nav-github')).toBe(links[3]);
       expect(screen.queryByLabelText('Theme')).toBeNull();
     });
 

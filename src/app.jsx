@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { AppIconField } from './app-icon-field.jsx';
 import { heroAnimationStyle } from './hero-timing.js';
+import { CatalogProvider, useCatalog } from './catalog-provider.jsx';
 
-export const routes = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
+export const routes = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
 export const command = 'curl -fsSL https://kubarr.com/install.sh | sudo bash';
 const github = 'https://github.com/smokeythebandit/';
 const mainMenu = [
   { label: 'Home', path: '', current: route => route === '' },
   { label: 'Features', path: 'features/', current: route => route.startsWith('features/') },
+  { label: 'Apps', path: 'apps/', current: route => route === 'apps/' },
   { label: 'GitHub ↗', href: `${github}Kubarr`, className: 'nav-github' },
 ];
 
@@ -61,7 +63,36 @@ function InstallCommand() {
 }
 
 function Home({ base }) {
-  return <main id="main"><section className="hero" aria-labelledby="hero-title" style={heroAnimationStyle}><AppIconField base={base}/><div className="hero-content"><h1 id="hero-title"><span className="hero-line-first">Your media stack </span><span className="hero-line-second">on <span className="kubernetes-word">Kubernetes</span><img className="kubernetes-logo" src={`${base}assets/kubernetes-icon-color.svg`} alt="" aria-hidden="true"/></span></h1><InstallCommand/></div></section></main>;
+  const catalog = useCatalog();
+  return <main id="main"><section className="hero" aria-labelledby="hero-title" style={heroAnimationStyle}><AppIconField catalog={catalog}/><div className="hero-content"><h1 id="hero-title"><span className="hero-line-first">Your media stack </span><span className="hero-line-second">on <span className="kubernetes-word">Kubernetes</span><img className="kubernetes-logo" src={`${base}assets/kubernetes-icon-color.svg`} alt="" aria-hidden="true"/></span></h1><InstallCommand/></div></section></main>;
+}
+
+function Apps() {
+  const { apps, revision, source, error, retry } = useCatalog();
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all');
+  const categories = [...new Set(apps.map(app => app.category))].sort((a, b) => a.localeCompare(b));
+  const selected = category === 'all' || categories.includes(category) ? category : 'all';
+  const search = query.trim().toLocaleLowerCase();
+  const matching = apps.filter(app => (selected === 'all' || app.category === selected) && (!search || `${app.name} ${app.description ?? ''}`.toLocaleLowerCase().includes(search)));
+  return <main className="container apps-page" id="main">
+    <span className="eyebrow">Chart catalog</span><h1>Apps</h1>
+    <p className="apps-lede">Browse chart-backed apps from the <a href="https://github.com/smokeythebandit/kubarr-charts">Kubarr charts repository</a>. Availability and requirements depend on each chart and your cluster.</p>
+    {source === 'pending' && !error ? <p role="status">Loading apps from GitHub…</p> : null}
+    {source === 'cache' && <p className="apps-state" role="status">Showing cached GitHub catalog{error ? ' — the latest update could not be loaded.' : ' while checking for updates…'}</p>}
+    {source === 'live' && <p className="apps-state" role="status">Catalog up to date from GitHub.</p>}
+    {error && <div className="apps-error" role="alert"><p>{source === 'cache' ? 'GitHub is unavailable right now. You can still browse the saved catalog.' : 'Could not load the app catalog from GitHub. Check your connection or try again later.'}</p><button type="button" onClick={retry}>Retry loading apps</button></div>}
+    {apps.length > 0 && <>
+      <div className="apps-controls"><label htmlFor="apps-search">Search apps</label><input id="apps-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search names and descriptions"/>
+        <label htmlFor="apps-category">Category</label><select id="apps-category" value={selected} onChange={event => setCategory(event.target.value)}><option value="all">All apps ({apps.length})</option>{categories.map(name => <option key={name} value={name}>{name} ({apps.filter(app => app.category === name).length})</option>)}</select></div>
+      <p className="apps-count" role="status">Showing {matching.length} of {apps.length} apps</p>
+      {matching.length ? <ul className="apps-grid">{matching.map(app => <li className="apps-card" key={app.id}>
+        <div className="apps-card-heading">{app.icon ? <img src={app.icon} alt="" width="56" height="56" loading="lazy"/> : <span className="apps-icon-placeholder" aria-hidden="true">◇</span>}<div><h2>{app.name}</h2><span className="apps-category">{app.category}</span></div></div>
+        {app.description && <p>{app.description}</p>}
+        <a href={`https://github.com/smokeythebandit/kubarr-charts/tree/${revision}/${app.group}/${app.id}`}>View {app.name} chart on GitHub ↗</a>
+      </li>)}</ul> : <p className="apps-empty">No apps match your search or category. Try another search or choose All apps.</p>}
+    </>}
+  </main>;
 }
 
 const features = [
@@ -131,5 +162,5 @@ function HowItWorks({ base }) {
 
 export function App({ route, base }) {
   if (!routes.includes(route)) throw new Error(`Unknown page: ${route}`);
-  return <><a className="skip" href="#main">Skip to content</a><Header route={route} base={base}/>{route === '' ? <Home base={base}/> : route.startsWith('features/') ? <Features route={route} base={base}/> : <Docs route={route} base={base}/>}</>;
+  return <><a className="skip" href="#main">Skip to content</a><Header route={route} base={base}/>{route === '' ? <CatalogProvider><Home base={base}/></CatalogProvider> : route === 'apps/' ? <CatalogProvider><Apps/></CatalogProvider> : route.startsWith('features/') ? <Features route={route} base={base}/> : <Docs route={route} base={base}/>}</>;
 }

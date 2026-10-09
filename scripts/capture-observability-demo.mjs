@@ -81,8 +81,6 @@ try {
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) return route.abort();
-    const icon = /^\/api\/apps\/catalog\/(jellyfin|sonarr|radarr)\/icon$/.exec(url.pathname);
-    if (icon) return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: await readFile(resolve(`src/assets/apps/${icon[1]}.svg`)) });
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
       const data = fixtures[url.pathname];
       return route.fulfill({ status: data === undefined ? 404 : 200, contentType: 'application/json', body: JSON.stringify(data ?? { detail: 'No demo fixture' }) });

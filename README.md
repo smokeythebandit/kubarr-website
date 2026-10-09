@@ -1,11 +1,11 @@
 # Kubarr website
 
-React landing page, feature pages and starter documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). Node.js 20+ and npm are required. Shared React components render eight static HTML pages at build time, then hydrate the menu and install-command controls in the browser. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
+React landing page, feature pages and starter documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). Node.js 20.10+ and npm are required. Shared React components render eight static HTML pages at build time, then hydrate the menu and install-command controls in the browser. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
 
 ## Work locally
 
 ```sh
-node --version # 20 or newer
+node --version # 20.10 or newer
 npm ci
 npm run build
 npm run check
@@ -21,6 +21,14 @@ npm run dev
 ```
 
 Open `http://localhost:8000/` for that build. The build writes only to `dist/`. `npm run check` validates prerendered pages, canonical URLs, local links/assets, theme initialization and both preview and production builds (in temporary directories). The local server reads `dist/` for each request; rebuild after editing source. Restart the server if you change `SITE_ORIGIN`.
+
+## Chart catalog
+
+The homepage **refreshes for each visitor** from the public [kubarr-charts](https://github.com/smokeythebandit/kubarr-charts) repository. After hydration, `CatalogProvider` requests the [GitHub tree for `main`](https://api.github.com/repos/smokeythebandit/kubarr-charts/git/trees/main?recursive=1) once, then fetches each discovered `*/<chart>/Chart.yaml` from `raw.githubusercontent.com` at the returned commit SHA (up to four parallel requests). There is no published machine-readable catalog index in the charts repository: Kubarr's own API also discovers the directories and reads chart annotations. The site uses `kubarr.io/category`, `system`, `hidden` and `browseable` annotations to select user-facing apps, and loads adjacent `icon.svg` files as pinned, external `<img>` URLs. New charts appear without a website deploy; missing icons get a `?` placeholder. The provider exposes `source` (`pending`, `cache` or `live`), revision and error state, also visible as `data-catalog-*` on the icon field.
+
+SSR and no-JavaScript visitors see the complete headline and install command without app icons. Hydration initially matches that HTML, then displays a validated localStorage cache if present and refreshes from GitHub. Cache icon URLs are reconstructed from a fixed GitHub repository, validated chart paths and the cached commit SHA; stored URLs are never used directly. A successful response replaces the catalog and updates the cache; on network failure or GitHub rate limits the cache remains visible, or without a cache no app icons appear. Cache entries expire after seven days. Requests have a 12-second overall timeout, a limit of 100 charts, and no credentials. GitHub's API quota and cache headers can delay updates or leave the icons absent; only the homepage makes catalog requests. The headline and install control follow a fixed, bounded introduction independent of catalog arrival; icons start their own stagger on insertion without replaying the headline. No supported app SVGs are bundled or requested locally.
+
+The website does not contact an authenticated Kubarr installation or expose an API token.
 
 ## Publish on GitHub Pages
 
