@@ -1,6 +1,6 @@
 # Kubarr website
 
-React landing page, feature pages and starter documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). Node.js 20.10+ and npm are required. Shared React components render eight static HTML pages at build time, then hydrate the menu and install-command controls in the browser. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
+React landing page, feature pages and starter documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). Node.js 20.10+ and npm are required. Shared React components render nine static HTML pages at build time, then hydrate the menu and install-command controls in the browser. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
 
 ## Work locally
 
@@ -33,12 +33,9 @@ The website does not contact an authenticated Kubarr installation or expose an A
 ## Publish on GitHub Pages
 
 1. Push to `main` in [kubarr-website](https://github.com/smokeythebandit/kubarr-website). In repository **Settings → Pages**, select **GitHub Actions** as the build/deployment source. The workflow builds and deploys `dist/` on pushes to `main` and can also be run manually. It needs the repository's Pages permission; no deploy token or branch write access is required.
-2. Before the domain is attached, the default build is for `https://smokeythebandit.github.io/kubarr-website/`. Links, assets, and canonical tags use this preview address. Check the deployment at that URL first.
-3. When ready for the custom domain, verify ownership of `kubarr.com` in GitHub Pages (under the account/org Pages domain settings) **before changing DNS**; follow GitHub's provided TXT verification instructions and wait for verification. In the website repository's Pages settings, set custom domain to `kubarr.com` only when ready for cutover. Keep the domain setting in GitHub Pages; this Actions-based publishing flow does not require a `CNAME` file in the artifact.
-4. At TransIP DNS for `kubarr.com`, remove conflicting apex A/AAAA records only at cutover, then set apex (`@`) A records to GitHub Pages' published addresses: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`. Optionally set `www` CNAME to `smokeythebandit.github.io` (no path). Check [GitHub's current custom-domain DNS documentation](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) before applying records. Avoid wildcard DNS records pointing at Pages. DNS and certificate provisioning may take time; enable **Enforce HTTPS** in Pages settings after the certificate is available.
-5. Once GitHub Pages shows the domain active, change the workflow build step to `SITE_ORIGIN: https://kubarr.com`, then redeploy. This switches canonical tags and sitemap URLs to production and changes asset/page links to root-relative paths. Preview builds can still be made locally by omitting `SITE_ORIGIN`. Do not switch the workflow early: the project Pages preview needs its `/kubarr-website/` path.
-
-There are no domain records or custom-domain binding in this repository yet. The production domain is the intended canonical destination; until activation the build correctly identifies the live Pages preview instead.
+2. The default *local* build is for `https://smokeythebandit.github.io/kubarr-website/`, with prefixed links and assets. Once the custom domain is attached, do not use that build as the Pages artifact.
+3. The repository's Pages custom domain is `kubarr.com`. Keep that binding in GitHub Pages settings; this Actions-based publishing flow does not require a `CNAME` file in the artifact. Check [GitHub's current custom-domain DNS documentation](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) before changing DNS. Allow time for certificate provisioning, then enable **Enforce HTTPS** in Pages settings once available.
+4. The workflow sets `SITE_ORIGIN: https://kubarr.com` on the published build so canonical tags, sitemap and all local links/assets use the domain root (`/assets/...`, not `/kubarr-website/assets/...`). Redeploy after changing this workflow. Local preview builds still default to `https://smokeythebandit.github.io/kubarr-website/`; they do not represent the custom-domain artifact.
 
 ## Layout
 

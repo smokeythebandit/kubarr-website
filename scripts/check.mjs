@@ -5,6 +5,12 @@ import { spawnSync } from 'node:child_process';
 import { strict as assert } from 'node:assert';
 import { runInNewContext } from 'node:vm';
 import { createHash } from 'node:crypto';
+import YAML from 'yaml';
+
+// The published artifact must use the custom-domain base, regardless of local preview defaults.
+const workflow = YAML.parse(await readFile('.github/workflows/pages.yml', 'utf8'));
+const buildStep = workflow.jobs.deploy.steps.find(step => step.run === 'npm run build');
+assert.equal(buildStep?.env?.SITE_ORIGIN, 'https://kubarr.com', 'Pages build must target the custom domain');
 
 const pages = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
 const featurePages = [['observability', 'Observability', 'Logging'], ['isolation', 'Isolation', 'Keep app workloads organized'], ['modularity', 'Modularity', 'Chart-based apps are independent components']];
@@ -71,6 +77,9 @@ try {
     const sitemap = await readFile(join(out, 'sitemap.xml'), 'utf8');
     const robots = await readFile(join(out, 'robots.txt'), 'utf8');
     assert.ok(robots.includes(`${origin}${base}sitemap.xml`));
+    if (mode === 'production') {
+      assert.doesNotMatch(sitemap + robots, /\/kubarr-website\//, 'production metadata must not use the project prefix');
+    }
     const home = await readFile(join(out, 'index.html'), 'utf8');
     assert.match(home, /<h1 id="hero-title"><span class="hero-line-first">Your media stack <\/span><span class="hero-line-second">on <span class="kubernetes-word">Kubernetes<\/span><img class="kubernetes-logo"/);
     assert.doesNotMatch(home, /Your media stack,/);
@@ -105,6 +114,7 @@ try {
       assert.doesNotMatch(await readFile(join(out, 'assets', file), 'utf8'), /(?:\/)?assets\/apps\//, `${mode}: local app icon reference in ${file}`);
     for (const page of pages) {
       const html = await readFile(join(out, page, 'index.html'), 'utf8');
+      if (mode === 'production') assert.doesNotMatch(html, /\/kubarr-website\//, `${mode}/${page}: project prefix in markup`);
       assert.doesNotMatch(html, /(?:\/)?assets\/apps\//, `${mode}/${page}: local app icon reference`);
       const canonical = `${origin}${base}${page}`;
       assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`) && sitemap.includes(`<loc>${canonical}</loc>`), `${mode}/${page}: canonical/sitemap`);
@@ -140,6 +150,10 @@ try {
       assert.ok(html.includes(`data-route="${page}" data-base="${base}"`), `${mode}/${page}: hydration route`);
       assert.ok(html.includes(`<script src="${base}assets/theme.js"></script>`) && html.indexOf('assets/theme.js') < html.indexOf('assets/site.css'), `${mode}/${page}: pre-paint theme`);
       assert.ok(html.includes(`src="${base}assets/app.js"`), `${mode}/${page}: hydration bundle`);
+      for (const asset of html.matchAll(/(?:href|src)="([^"]*\/assets\/[^"]+)"/g)) {
+        assert.ok(asset[1].startsWith(`${base}assets/`), `${mode}/${page}: wrong asset URL: ${asset[1]}`);
+        await stat(join(out, asset[1].slice(base.length)));
+      }
       for (const required of ['<html lang="en">', '<meta name="description"', '<title>', '<main ', 'id="main"', 'href="#main"', 'aria-label="Main navigation"', 'aria-expanded="false"']) assert.ok(html.includes(required), `${mode}/${page}: missing ${required}`);
       assert.doesNotMatch(html, /class="theme-control"|<option value="(?:system|light|dark)"/);
       assert.match(html, /<nav class="nav[\s\S]*?Home[\s\S]*?Features[\s\S]*?Apps[\s\S]*?GitHub ↗/);

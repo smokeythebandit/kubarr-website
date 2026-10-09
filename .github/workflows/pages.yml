@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          SITE_ORIGIN: https://kubarr.com
       - run: npm run check
       - run: npm test
       - uses: actions/configure-pages@v5
