@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { strict as assert } from 'node:assert';
 import { runInNewContext } from 'node:vm';
 import { createHash } from 'node:crypto';
+import { supportedApps } from '../src/supported-apps.js';
 
 const pages = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
 const featurePages = [['observability', 'Observability', 'Logging'], ['isolation', 'Isolation', 'Keep app workloads organized'], ['modularity', 'Modularity', 'Chart-based apps are independent components']];
@@ -15,22 +16,47 @@ const featureDescriptions = {
   'features/modularity/': 'Install and manage independent chart-based applications with Kubarr.',
 };
 for (const [name, hash] of [
-  ['mark.svg', 'ff99f9dbc74c5c1d21746787e5f8a29d3ee4b3d404fd4e0de76989cde96d398e'],
+  // Kubarr/code/frontend/public/favicon.svg (the app's Ship icon).
+  ['mark.svg', '27a54d49831ca76e15157453ed54970da78651fab96292e66d92542aed4baf91'],
   ['kubernetes-icon-color.svg', 'ff5427cfeeff39e82834ab1b4fe3ed61fc08596225a17eed56adc04f7cc1f712'],
 ]) assert.equal(createHash('sha256').update(await readFile(`src/assets/${name}`)).digest('hex'), hash);
-const apps = ['sonarr', 'plex', 'immich', 'radarr', 'jellyfin', 'qbittorrent', 'deluge', 'sabnzbd', 'frigate', 'headlamp', 'redmine', 'victoriametrics'];
+// Independent snapshot of non-system chart names under the six user-app categories.
+// Provenance: kubarr-charts/*/*/Chart.yaml kubarr.io/category/system/hidden;
+// Kubarr/code/api/src/services/catalog.rs parses these flags for the catalog.
+const expected = {
+  development: ['jenkins', 'redmine', 'scm-manager'],
+  'download-client': ['deluge', 'qbittorrent', 'rutorrent', 'sabnzbd', 'transmission'],
+  indexer: ['jackett'],
+  'media-manager': ['jellyseerr', 'radarr', 'sonarr'],
+  'media-server': ['frigate', 'immich', 'jellyfin', 'plex'],
+  monitoring: ['grafana', 'headlamp'],
+};
+const apps = supportedApps.map(({ id }) => id);
+assert.deepEqual([...apps].sort(), Object.values(expected).flat().sort(), 'catalog snapshot coverage');
+assert.equal(new Set(apps).size, apps.length, 'no duplicate logos');
 for (const app of apps) {
   const svg = await readFile(`src/assets/apps/${app}.svg`, 'utf8');
   assert.match(svg, /<svg\b[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
-  assert.doesNotMatch(svg, /<script|<foreignObject|(?:href|url\()=["']?https?:/i);
+  assert.doesNotMatch(svg, /<script\b|<foreignObject\b|<iframe\b|<object\b|<animate\b|<set\b|\bon[a-z]+\s*=|@import|<!ENTITY|<\?xml-stylesheet/i, `${app}: active content`);
+  for (const match of svg.matchAll(/\b(?:href|src)\s*=\s*["']([^"']+)["']/gi))
+    assert.match(match[1], /^(?:#[\w.-]+|data:image\/png;base64,[A-Za-z0-9+/=\s]+)$/, `${app}: external reference`);
+  for (const match of svg.matchAll(/url\(\s*["']?([^)'"\s]+)["']?\s*\)/gi))
+    assert.match(match[1], /^#[\w.-]+$/, `${app}: external CSS reference`);
 }
 const css = await readFile('src/assets/site.css', 'utf8');
 assert.match(css, /:root\.dark\{/);
-assert.match(css, /@keyframes float\{[^}]*opacity:\.32[^}]*\}[^}]*opacity:\.7/);
-assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.home \.float-icon\{animation:none;opacity:\.55;transform:none\}\}/);
+assert.match(css, /\.home \.hero-icons\{[^}]*pointer-events:none/);
+assert.match(css, /\.home \.hero-icons\{[^}]*overflow:hidden/);
+assert.match(css, /\.home \.float-icon\{[^}]*position:absolute/);
 const mobile = css.match(/@media\(max-width:700px\)\{\s*\.home \.hero\{[\s\S]*?\n\}/)?.[0];
-assert.ok(mobile && apps.every((_, index) => mobile.includes(`.home .float-icon:nth-child(${index + 1})`)));
-assert.doesNotMatch(mobile, /display:none/);
+assert.ok(mobile && mobile.includes('grid-template-rows:minmax(220px,1fr)'));
+for (const [depth, width] of [[0, 52], [1, 40], [2, 36]])
+  assert.ok(mobile.includes(`.home .float-icon.icon-depth-${depth}{width:${width}px}`));
+assert.ok(mobile.includes('--move-x:var(--sdx);--move-y:var(--sdy)'));
+assert.match(css, /@keyframes icon-breathe\{0%\{transform:translate3d\(calc\(var\(--move-x\) \* -\.5\)/);
+assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.home \.float-icon img,\.home \.icon-wobble\{animation:none\}\.icon-entrance-ready \.home \.hero-line-first,[^}]*\.hero-install,[^}]*\.icon-entrance\{visibility:visible;opacity:1;transform:none;animation:none\}\}/);
+assert.doesNotMatch(css, /\.home \.float-icon:nth-child|\.home \.float-icon[^{}]*\{[^}]*display:none/);
+for (const { depth } of supportedApps) assert.ok(depth >= 0 && depth <= 2);
 
 // Pre-paint theme initialization stays synchronous and respects saved/system preferences.
 const themeScript = await readFile('src/assets/theme.js', 'utf8');
@@ -71,11 +97,16 @@ try {
     const robots = await readFile(join(out, 'robots.txt'), 'utf8');
     assert.ok(robots.includes(`${origin}${base}sitemap.xml`));
     const home = await readFile(join(out, 'index.html'), 'utf8');
-    assert.match(home, /Your media stack, <br\/>on <span class="kubernetes-word">Kubernetes<\/span><img class="kubernetes-logo"/);
+    assert.match(home, /<h1 id="hero-title"><span class="hero-line-first">Your media stack <\/span><span class="hero-line-second">on <span class="kubernetes-word">Kubernetes<\/span><img class="kubernetes-logo"/);
+    assert.doesNotMatch(home, /Your media stack,/);
     assert.match(home, /curl -fsSL https:\/\/kubarr\.com\/install\.sh \| sudo bash/);
     assert.match(home, /aria-label="Copy install command"/);
     assert.equal([...home.matchAll(/<section\b/g)].length, 1);
-    assert.equal([...home.matchAll(/class="float-icon"/g)].length, 12);
+    assert.equal([...home.matchAll(/class="float-icon icon-depth-[012]"/g)].length, apps.length);
+    assert.match(home, /class="hero-icons" aria-hidden="true"/);
+    assert.ok(home.indexOf('classList.add("icon-entrance-ready")') < home.indexOf('assets/site.css'), `${mode}: pre-paint entrance flag`);
+    assert.doesNotMatch(home, /is-entering/);
+    assert.equal([...home.matchAll(/--arrival-delay:/g)].length, apps.length);
     for (const app of apps) assert.ok(home.includes(`src="${base}assets/apps/${app}.svg"`));
     const features = await readFile(join(out, 'features/index.html'), 'utf8');
     assert.match(features, /aria-label="Features"/);

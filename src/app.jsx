@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { AppIconField } from './app-icon-field.jsx';
+import { heroAnimationStyle } from './hero-timing.js';
 
 export const routes = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
 export const command = 'curl -fsSL https://kubarr.com/install.sh | sudo bash';
-const apps = ['sonarr', 'plex', 'immich', 'radarr', 'jellyfin', 'qbittorrent', 'deluge', 'sabnzbd', 'frigate', 'headlamp', 'redmine', 'victoriametrics'];
 const github = 'https://github.com/smokeythebandit/';
 const mainMenu = [
   { label: 'Home', path: '', current: route => route === '' },
@@ -18,17 +19,18 @@ function Header({ route, base }) {
     return () => document.removeEventListener('keydown', escape);
   }, [open]);
   return <header className="site-header"><div className="container header-inner">
-    <a className="brand" href={base} aria-label="Kubarr home"><img src={`${base}assets/mark.svg`} alt=""/>Kubarr</a>
+    <a className="brand" href={base} aria-label="Kubarr home"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+      <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/>
+      <path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/>
+      <path d="M12 10v4"/>
+      <path d="M12 2v3"/>
+    </svg>Kubarr</a>
     <button className="menu-toggle" data-menu-toggle type="button" aria-expanded={open} aria-controls="site-nav" onClick={() => setOpen(!open)}>Menu</button>
     <nav className={`nav${open ? ' is-open' : ''}`} id="site-nav" aria-label="Main navigation" onClick={event => { if (event.target.closest('a')) setOpen(false); }}>
       {mainMenu.map(({ label, path, href, current, className }) => <a key={label} className={className} href={href ?? base + path} aria-current={current?.(route) ? 'page' : undefined}>{label}</a>)}
     </nav>
   </div></header>;
-}
-
-function Footer({ route, base }) {
-  if (!route) return <footer className="footer"><div className="container footer-inner"><span>© Kubarr contributors</span><a href={`${github}kubarr-website`}>Website source</a></div></footer>;
-  return <footer className="footer"><div className="container footer-inner"><span>© Kubarr contributors · Built for self-hosters.</span><div className="footer-links"><a href={base}>Home</a><a href={`${base}docs/`}>Documentation</a><a href={`${github}Kubarr`}>App repository</a><a href={`${github}kubarr-charts`}>Charts repository</a></div></div></footer>;
 }
 
 function InstallCommand() {
@@ -59,7 +61,7 @@ function InstallCommand() {
 }
 
 function Home({ base }) {
-  return <main id="main"><section className="hero" aria-labelledby="hero-title"><div className="hero-icons" aria-hidden="true">{apps.map(app => <img key={app} className="float-icon" src={`${base}assets/apps/${app}.svg`} alt=""/>)}</div><div className="hero-content"><h1 id="hero-title">Your media stack, <br/>on <span className="kubernetes-word">Kubernetes</span><img className="kubernetes-logo" src={`${base}assets/kubernetes-icon-color.svg`} alt="" aria-hidden="true"/></h1><InstallCommand/></div></section></main>;
+  return <main id="main"><section className="hero" aria-labelledby="hero-title" style={heroAnimationStyle}><AppIconField base={base}/><div className="hero-content"><h1 id="hero-title"><span className="hero-line-first">Your media stack </span><span className="hero-line-second">on <span className="kubernetes-word">Kubernetes</span><img className="kubernetes-logo" src={`${base}assets/kubernetes-icon-color.svg`} alt="" aria-hidden="true"/></span></h1><InstallCommand/></div></section></main>;
 }
 
 const features = [
@@ -129,5 +131,5 @@ function HowItWorks({ base }) {
 
 export function App({ route, base }) {
   if (!routes.includes(route)) throw new Error(`Unknown page: ${route}`);
-  return <><a className="skip" href="#main">Skip to content</a><Header route={route} base={base}/>{route === '' ? <Home base={base}/> : route.startsWith('features/') ? <Features route={route} base={base}/> : <Docs route={route} base={base}/>}<Footer route={route} base={base}/></>;
+  return <><a className="skip" href="#main">Skip to content</a><Header route={route} base={base}/>{route === '' ? <Home base={base}/> : route.startsWith('features/') ? <Features route={route} base={base}/> : <Docs route={route} base={base}/>}</>;
 }
