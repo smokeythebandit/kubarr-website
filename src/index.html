@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#091319">
+  <meta name="description" content="Kubarr is a Kubernetes-native dashboard for deploying and managing self-hosted media applications.">
+  <meta property="og:type" content="website"><meta property="og:title" content="Kubarr — Your media stack, under your control"><meta property="og:description" content="A Kubernetes-native home for your self-hosted media stack.">
+  <meta property="og:url" content="__CANONICAL__">
+  <link rel="canonical" href="__CANONICAL__"><link rel="icon" type="image/svg+xml" href="__BASE__assets/mark.svg"><link rel="stylesheet" href="__BASE__assets/site.css">
+  <title>Kubarr — Your media stack, under your control</title><script src="__BASE__assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header"><div class="container header-inner">
+    <a class="brand" href="__BASE__" aria-label="Kubarr home"><img src="__BASE__assets/mark.svg" alt="">Kubarr</a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-menu-toggle>Menu</button>
+    <nav class="nav" id="site-nav" aria-label="Main navigation" data-menu><a href="__BASE__" aria-current="page">Home</a><a href="__BASE__docs/">Documentation</a><a href="https://github.com/smokeythebandit/kubarr-charts">Charts</a><a class="nav-github" href="https://github.com/smokeythebandit/Kubarr">GitHub ↗</a></nav>
+  </div></header>
+  <main id="main">
+    <section class="hero"><div class="container hero-grid">
+      <div><span class="eyebrow">Self-hosted · Kubernetes-native · Open source</span><h1>Your media stack,<br><span>under your control.</span></h1><p class="lede">Deploy and manage the apps that make your media library yours. Kubarr brings your Kubernetes workloads together in one dashboard, from application setup to logs and status.</p><div class="actions"><a class="button primary" href="__BASE__docs/getting-started/">Get started <span aria-hidden="true">&nbsp;→</span></a><a class="button" href="https://github.com/smokeythebandit/Kubarr">Explore the source ↗</a></div><p class="hero-note"><strong>Bring your own cluster.</strong> Built for people who like to own their infrastructure.</p></div>
+      <div class="diagram" role="img" aria-label="Conceptual diagram: Kubarr dashboard connects through a gateway to media apps on Kubernetes">
+        <div class="diagram-top"><span>How it fits together</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+        <div class="diagram-body"><p class="diagram-title">One place for your stack.</p><p class="diagram-sub">A conceptual view of the Kubarr architecture</p><div class="node"><span class="icon" aria-hidden="true">K</span><span><strong>Kubarr dashboard</strong><small>Applications · status · configuration</small></span></div><div class="connector"></div><div class="node"><span class="icon" aria-hidden="true">↗</span><span><strong>Gateway + API</strong><small>Authenticated access &amp; control</small></span></div><div class="connector"></div><div class="node-row"><div class="node"><span class="icon" aria-hidden="true">◫</span><span><strong>Media apps</strong><small>Helm-managed</small></span></div><div class="node"><span class="icon" aria-hidden="true">⬡</span><span><strong>Kubernetes</strong><small>Your cluster</small></span></div></div></div>
+        <div class="diagram-caption">ARCHITECTURE SKETCH / NOT A LIVE DASHBOARD</div>
+      </div>
+    </div></section>
+    <section class="section" id="features"><div class="container"><span class="eyebrow">A better view of your homelab</span><h2>Less jumping between tools.<br>More time enjoying your setup.</h2><p class="section-intro">Kubarr brings application lifecycle and cluster visibility into a single interface while your workloads stay on your own infrastructure.</p><div class="cards"><article class="card"><span class="number">01 / DEPLOY</span><h3>Curated app catalog</h3><p>Install supported apps such as Sonarr, Radarr, qBittorrent, Plex and Jellyfin through the dashboard, backed by Helm charts.</p></article><article class="card"><span class="number">02 / OBSERVE</span><h3>See what is happening</h3><p>Check application status, resource metrics and logs from one place when something needs attention.</p></article><article class="card"><span class="number">03 / ORGANIZE</span><h3>Built on Kubernetes</h3><p>Apps run in separate namespaces; the gateway, API and worker coordinate access and lifecycle operations.</p></article></div></div></section>
+    <section class="section alt"><div class="container split"><div><span class="eyebrow">The approach</span><h2>Your cluster.<br>Your choices.</h2><p>Use the Kubarr CLI to bootstrap the platform, then deploy media apps from the catalog. Your Kubernetes cluster runs the workloads; Kubarr gives you a place to manage them.</p><a href="__BASE__docs/how-it-works/">Explore the architecture →</a></div><ol class="steps"><li><strong>Prepare a cluster</strong><span>Check Kubernetes, storage and the tools needed by the installer.</span></li><li><strong>Bootstrap Kubarr</strong><span>Build and run the CLI installer from the app repository.</span></li><li><strong>Shape your stack</strong><span>Choose applications from the catalog and monitor their status.</span></li></ol></div></section>
+    <section class="cta"><div class="container"><div><span class="eyebrow">Ready to dive in?</span><h2>Start with the real setup path.</h2><p>Requirements, CLI commands and the next steps in one guide.</p></div><a class="button primary" href="__BASE__docs/getting-started/">Read the getting started guide →</a></div></section>
+  </main>
+  <footer class="footer"><div class="container footer-inner"><span>© Kubarr contributors · Built for self-hosters.</span><div class="footer-links"><a href="__BASE__docs/">Documentation</a><a href="https://github.com/smokeythebandit/Kubarr">App repository</a><a href="https://github.com/smokeythebandit/kubarr-charts">Charts repository</a><a href="https://github.com/smokeythebandit/kubarr-website">Website source</a></div></div></footer>
+</body></html>
