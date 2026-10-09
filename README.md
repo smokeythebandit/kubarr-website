@@ -1,11 +1,12 @@
 # Kubarr website
 
-Static landing page and starter documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). No npm dependencies or framework; Node.js 20+ builds and checks the site.
+React landing page, feature pages and starter documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). Node.js 20+ and npm are required. Shared React components render eight static HTML pages at build time, then hydrate the menu and install-command controls in the browser. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
 
 ## Work locally
 
 ```sh
 node --version # 20 or newer
+npm ci
 npm run build
 npm run check
 npm run dev
@@ -19,7 +20,7 @@ npm run check
 npm run dev
 ```
 
-Open `http://localhost:8000/` for that build. The build writes only to `dist/`. `npm run check` validates the generated pages, canonical URLs, local links/assets, and both preview and production builds (in temporary directories). No lockfile is needed because there are no external dependencies.
+Open `http://localhost:8000/` for that build. The build writes only to `dist/`. `npm run check` validates prerendered pages, canonical URLs, local links/assets, theme initialization and both preview and production builds (in temporary directories). The local server reads `dist/` for each request; rebuild after editing source. Restart the server if you change `SITE_ORIGIN`.
 
 ## Publish on GitHub Pages
 
@@ -33,9 +34,37 @@ There are no domain records or custom-domain binding in this repository yet. The
 
 ## Layout
 
-- `src/` — handwritten HTML, CSS, JS and SVG artwork; pages live at `/` and `/docs/`.
-- `scripts/build.mjs` — copies source to `dist/`, sets the base path and canonical URLs, writes a sitemap and robots.txt.
+- `src/app.jsx` — shared React layout, page content and interactive controls. `src/client.jsx` hydrates each prerendered page. `src/assets/` retains the CSS, genuine SVG artwork, and synchronous pre-paint theme initializer.
+- `scripts/build.mjs` — bundles the React client, prerenders all routes to `dist/`, sets the base path and canonical URLs, and writes a sitemap and robots.txt.
 - `scripts/check.mjs` — checks output paths and references in both deployment modes.
 - `.github/workflows/pages.yml` — build, check, and least-privilege GitHub Pages deployment.
+
+## Design source
+
+### Observability screenshots
+
+`src/assets/observability/{logs,resources,networking}.jpg` are dark-mode Playwright captures of the real Kubarr UI, signed in via the browser to the local `kind-kubarr-local` cluster at `http://127.0.0.1:18080` on October 9, 2026. They show observed data from `/logs`, `/resources`, and `/networking`, **not production data**. Logs displayed 2,000 entries (the queried view), Resources showed cluster and app metrics with GPU telemetry unavailable, and Networking showed a populated live topology and statistics. Values are point-in-time observations. Each JPEG is 1440px wide; the feature page links to the full-size copy.
+
+Before publication the raw PNGs in `/tmp/opencode/` were visually reviewed for exposed secrets, host addresses, domains, usernames, and session identifiers. The top 66 pixels of **each** image were cropped to remove the signed-in username in the account/navigation bar. Visible log rows include app status/setup messages (some mention an API key being configured, but show no key values). No log text was fabricated or replaced. Raw images and temporary capture/sanitization scripts remain outside the website directory. The capture session was logged out using the UI. Recheck every image manually on any new capture; log contents and graph labels can change at any time.
+
+For another *live* capture, only with explicit authorization for the target cluster and its credentials: use a fresh isolated Playwright browser context, navigate to the cluster's login page, fill credentials from a private file read **inside** the capture process (never command-line arguments, logs, or website assets), sign in through the UI, set browser-local `kubarr-theme` to `dark` with a dark color scheme, visit `/logs`, `/resources`, and `/networking` without intercepting API responses, save raw images outside the repository, inspect each image, crop/redact identifying text, then copy only reviewed images to `src/assets/observability/` and log out through the UI. Do not update the server-side theme preference just to take screenshots. The local one-off browser and crop scripts for this capture are `/tmp/opencode/capture-kubarr-live.mjs` and `/tmp/opencode/sanitize-kubarr-captures.py`; the password file is private, separate, and is not part of this website.
+
+For **synthetic demonstration captures only**, install dependencies in a separate checkout of `Kubarr/code/frontend` and run from this website directory:
+
+```sh
+KUBARR_FRONTEND=/absolute/path/to/Kubarr/code/frontend node scripts/capture-observability-demo.mjs
+```
+
+The demo script starts only a loopback Vite frontend with no backend proxy, intercepts every API/auth request in the browser and blocks non-local requests. Its synthetic output goes to `src/assets/observability-demo/`, never the published live image paths; it uses a temporary Vite cache under `node_modules/`. Review new live images before publishing, then run `npm test && npm run build && npm run check`.
+
+### Isolation screenshots
+
+`src/assets/isolation/{containers,storage,vpn}.jpg` are dark-mode Playwright captures of the actual Kubarr UI on the local `kind-kubarr-local` cluster at `http://127.0.0.1:18080` on October 9, 2026. Containers is the Immich pod detail dialog on `/resources` (four running pods, container readiness and restarts); Storage is the populated NFS root browser on `/storage`; VPN is the read-only overview under Settings → VPN, showing an existing WireGuard provider and two app assignments with kill switches on. These are point-in-time UI states, not a demonstration of pod isolation, storage access control, VPN tunnel verification, or Cilium policy enforcement. No dedicated Cilium/NetworkPolicy UI was available; `/networking` shows observed traffic only and is not reused as policy evidence.
+
+Capture script: `/tmp/opencode/capture-kubarr-isolation.mjs`; sanitization script: `/tmp/opencode/sanitize-kubarr-isolation.py`. The capture used a fresh isolated Playwright context and browser login with the private password read inside the process; it made only UI reads and logged out through the UI. Raw PNGs remain in `/tmp/opencode/` and were visually inspected alongside the published JPEGs for usernames, personal paths, addresses/domains and secrets. The full top 66px account bar was cropped from Storage and VPN. The Containers image is cropped to its dialog, and four internal pod IP lines are removed with opaque rectangles before JPEG encoding. No VPN credential forms were opened, no credentials or session data were published, and no cluster settings or workloads were changed. For recaptures, inspect each new raw and sanitized image before publishing: directory names and provider labels can change.
+
+The site uses the app's `Kubarr/code/frontend/src/index.css` typography and class-based light/dark convention, with gray/blue Tailwind colors and compact controls from the app UI. `src/assets/mark.svg` is the exact app `public/kubarr-icon.svg`. The site follows the OS theme by default; the small synchronous head script applies the theme before the stylesheet paints. No theme picker is displayed. No fonts or scripts are fetched externally at runtime.
+
+The headline's `src/assets/kubernetes-icon-color.svg` is the exact [CNCF Kubernetes color icon](https://raw.githubusercontent.com/cncf/artwork/main/projects/kubernetes/icon/color/kubernetes-icon-color.svg). Its upstream SHA-256 is `ff5427cfeeff39e82834ab1b4fe3ed61fc08596225a17eed56adc04f7cc1f712`, verified by `npm run check` to catch incomplete or altered artwork.
 
 For product changes, compare copy and commands to the current [app](https://github.com/smokeythebandit/Kubarr) and [charts](https://github.com/smokeythebandit/kubarr-charts) repositories first; some older app docs still reference a retired umbrella chart.

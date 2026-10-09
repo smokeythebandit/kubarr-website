@@ -4,7 +4,7 @@ import { extname, resolve, sep } from 'node:path';
 
 const root = resolve('dist');
 const base = process.env.SITE_ORIGIN === 'https://kubarr.com' ? '/' : '/kubarr-website/';
-const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.xml': 'application/xml', '.txt': 'text/plain' };
+const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.xml': 'application/xml', '.txt': 'text/plain' };
 createServer(async (req, res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
