@@ -1,23 +1,22 @@
 import React from 'react';
 import { arrivalDelays } from './hero-timing.js';
 
-// Hand-placed centers, in percentages of the hero. Mobile has its own composition:
-// the narrow sides cannot safely hold logos beside the headline.
+// Stable initial centers while the catalog mounts; the homepage layout then
+// measures the viewport and places every icon in the free space around the copy.
 const anchors = {
-  sonarr:       [14, 13, 13,  7], plex:         [81, 15, 72,  8],
-  immich:       [34, 11, 44, 18], radarr:       [66, 18, 85, 17],
-  jellyfin:     [49, 20, 12, 26], qbittorrent:  [ 9, 44, 53, 10],
-  deluge:       [12, 58, 74, 28], sabnzbd:      [ 7, 70, 25, 18],
-  frigate:      [18, 31, 48, 27], headlamp:     [91, 37, 90, 72],
-  redmine:      [84, 55, 20, 76], jellyseerr:   [91, 69, 46, 76],
-  jackett:      [76, 76, 75, 80], transmission: [13, 84,  9, 88],
-  rutorrent:    [32, 92, 29, 87], jenkins:      [50, 83, 61, 94],
-  'scm-manager': [69, 92, 87, 87], grafana:      [88, 85, 48, 89],
+  sonarr:       [12,  8, 18,  8], plex:         [31,  8, 50,  8],
+  immich:       [50,  8, 82,  8], radarr:       [69,  8, 18, 19],
+  jellyfin:     [88,  8, 50, 19], qbittorrent:  [20, 18, 82, 19],
+  deluge:       [44, 20, 18, 30], sabnzbd:      [60, 18, 50, 30],
+  frigate:      [80, 18, 82, 30], headlamp:     [12, 82, 18, 70],
+  redmine:      [31, 82, 50, 70], jellyseerr:   [50, 82, 82, 70],
+  jackett:      [69, 82, 18, 81], transmission: [88, 82, 50, 81],
+  rutorrent:    [20, 92, 82, 81], jenkins:      [40, 92, 18, 92],
+  'scm-manager': [60, 92, 50, 92], grafana:      [80, 92, 82, 92],
 };
 
-// Full endpoint-to-endpoint travel in pixels: wide / compact / phone. Keep the
-// fixed centers above; the short, directional sweeps stay in the whitespace
-// around each center rather than sending logos across the headline.
+// Full endpoint-to-endpoint travel in pixels: wide / compact / phone. The
+// measured layout scales these sweeps to the icon's available space.
 const travel = {
   sonarr:       [[-30, 20], [-16, 22], [  0, 16]],
   plex:         [[ 32, 24], [ 22, 18], [ 12, 12]],
@@ -57,10 +56,6 @@ export function newAppAnchors(apps) {
   const known = apps.filter(app => anchors[app.id]).map(app => app.id);
   const desktop = known.map(id => anchors[id].slice(0, 2));
   const mobile = known.map(id => anchors[id].slice(2));
-  // Compact CSS moves these two curated icons; reserve both their compact
-  // positions and the phone positions while placing newcomers.
-  if (known.includes('frigate')) mobile.push([60, 21]);
-  if (known.includes('deluge')) mobile.push([93, 34]);
   const select = used => {
     const result = [];
     for (let i = 0; i < unknown.length; i++) {
@@ -93,7 +88,7 @@ export function AppIconField({ catalog }) {
           '--dx': `${dx}px`, '--dy': `${dy}px`, '--cdx': `${cdx}px`, '--cdy': `${cdy}px`,
           '--sdx': `${sdx}px`, '--sdy': `${sdy}px`, '--time': `${18 + (index % 6) * 2.1}s`,
           '--phase': `${(index % 7) * -2.7}s`, '--jiggle-time': `${3 + (index % 5) * .47}s`,
-          '--jiggle-phase': `${(index % 9) * -.61}s` }}>
+          '--jiggle-phase': `${(index % 9) * .08}s` }}>
         <span className="icon-entrance" style={{ '--arrival-delay': `${arrivalDelays[app.id] ?? 0}ms` }}>
           <span className="icon-wobble">{app.icon ? <img src={app.icon} alt="" draggable="false"/> : <span className="missing-app-icon" title={`${app.name}: no chart icon`}>?</span>}</span>
         </span>

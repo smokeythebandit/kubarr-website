@@ -12,14 +12,8 @@ const workflow = YAML.parse(await readFile('.github/workflows/pages.yml', 'utf8'
 const buildStep = workflow.jobs.deploy.steps.find(step => step.run === 'npm run build');
 assert.equal(buildStep?.env?.SITE_ORIGIN, 'https://kubarr.com', 'Pages build must target the custom domain');
 
-const pages = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
-const featurePages = [['observability', 'Observability', 'Logging'], ['isolation', 'Isolation', 'Keep app workloads organized'], ['modularity', 'Modularity', 'Chart-based apps are independent components']];
-const featureDescriptions = {
-  'features/': "Explore Kubarr's chart-backed app catalog, Kubernetes deployment, monitoring, access controls and shared storage.",
-  'features/observability/': 'View application logs, track CPU and memory usage, and see network activity and connections live.',
-  'features/isolation/': 'Explore Kubarr app containers, Cilium-compatible network policies, shared storage and per-app VPN options.',
-  'features/modularity/': 'Install and manage independent chart-based applications with Kubarr.',
-};
+const pages = ['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
+const redirects = { 'features/': 'features', 'features/observability/': 'observability', 'features/isolation/': 'isolation', 'features/modularity/': 'apps' };
 for (const [name, hash] of [
   // Kubarr/code/frontend/public/favicon.svg (the app's Ship icon).
   ['mark.svg', '27a54d49831ca76e15157453ed54970da78651fab96292e66d92542aed4baf91'],
@@ -30,13 +24,16 @@ assert.match(css, /:root\.dark\{/);
 assert.match(css, /\.home \.hero-icons\{[^}]*pointer-events:none/);
 assert.match(css, /\.home \.hero-icons\{[^}]*overflow:hidden/);
 assert.match(css, /\.home \.float-icon\{[^}]*position:absolute/);
-const mobile = css.match(/@media\(max-width:700px\)\{\s*\.home \.hero\{[\s\S]*?\n\}/)?.[0];
-assert.ok(mobile && mobile.includes('grid-template-rows:minmax(220px,1fr)'));
-for (const [depth, width] of [[0, 52], [1, 40], [2, 36]])
-  assert.ok(mobile.includes(`.home .float-icon.icon-depth-${depth}{width:${width}px}`));
+const mobile = css.match(/@media\(max-width:700px\)\{\s*\.home \.hero-install[\s\S]*?\n\}/)?.[0];
+assert.ok(mobile && mobile.includes('flex:1 1 auto;overflow-wrap:anywhere'));
+assert.match(css, /height:100vh;height:100svh;height:100dvh/);
+assert.doesNotMatch(css, /min-height:1[68]00px/);
 assert.ok(mobile.includes('--move-x:var(--sdx);--move-y:var(--sdy)'));
-assert.match(css, /@keyframes icon-breathe\{0%\{transform:translate3d\(calc\(var\(--move-x\) \* -\.5\)/);
-assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.home \.float-icon img,\.home \.icon-wobble\{animation:none\}\.icon-entrance-ready \.home \.hero-line-first,[^}]*\.hero-install,[^}]*\.icon-entrance\{visibility:visible;opacity:1;transform:none;animation:none\}\}/);
+assert.match(css, /@keyframes icon-breathe\{0%\{transform:translate3d\(calc\(var\(--move-x\) \* var\(--motion-scale,\.5\)/);
+assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.home \.float-icon img,\.home \.icon-wobble\{animation:none\}\.icon-entrance-ready \.home \.hero-line-first,[^}]*\.hero-install,[^}]*\.icon-entrance\{visibility:visible;opacity:1;transform:none;animation:none\}\.icon-entrance-ready \.home \.home-header\{visibility:visible;opacity:1;animation:none\}\.icon-entrance-ready \.home \.hero-icons\{visibility:visible;opacity:\.6;animation:none\}\}/);
+assert.match(css, /\.icon-entrance-ready \.home \.hero-icons\{animation:icons-dim var\(--hero-install-duration\) ease-out var\(--hero-final-start\) both\}/);
+assert.match(css, /\.icon-entrance-ready \.home \.home-header\{animation:header-arrive var\(--hero-install-duration\) ease-out var\(--hero-final-start\) both\}/);
+assert.match(css, /@keyframes header-arrive\{0%\{visibility:hidden;opacity:0\}\.01%\{visibility:visible;opacity:0\}100%\{visibility:visible;opacity:1\}\}/);
 assert.doesNotMatch(css, /\.home \.float-icon:nth-child|\.home \.float-icon[^{}]*\{[^}]*display:none/);
 
 // Pre-paint theme initialization stays synchronous and respects saved/system preferences.
@@ -81,32 +78,69 @@ try {
       assert.doesNotMatch(sitemap + robots, /\/kubarr-website\//, 'production metadata must not use the project prefix');
     }
     const home = await readFile(join(out, 'index.html'), 'utf8');
-    assert.match(home, /<h1 id="hero-title"><span class="hero-line-first">Your media stack <\/span><span class="hero-line-second">on <span class="kubernetes-word">Kubernetes<\/span><img class="kubernetes-logo"/);
+    assert.match(home, /<h1 id="hero-title"><span class="hero-line-first">Your media stack <\/span><span class="hero-line-second">on <span class="kubernetes-lockup"><span class="kubernetes-word">Kubernetes<\/span><img class="kubernetes-logo"/);
     assert.doesNotMatch(home, /Your media stack,/);
     assert.match(home, /curl -fsSL https:\/\/kubarr\.com\/install\.sh \| sudo bash/);
     assert.match(home, /aria-label="Copy install command"/);
-    assert.equal([...home.matchAll(/<section\b/g)].length, 1);
+    assert.doesNotMatch(home, /03 \/ GET STARTED|Make it yours\.|Bring your cluster\. Choose your apps\./);
+    assert.equal([...home.matchAll(/<section\b/g)].length, 3);
+    for (const anchor of ['features', 'observability', 'isolation', 'apps']) assert.ok(home.includes(`id="${anchor}"`), `${mode}: homepage anchor ${anchor}`);
+    assert.doesNotMatch(home, /03 — MODULARITY|Only the apps you need\.|Build your own stack\.|Workloads|Services|APP CHARTS \/ COMPONENTS/);
+    for (const image of ['observability/logs.jpg', 'observability/resources.jpg', 'observability/networking.jpg', 'isolation/containers.jpg', 'isolation/storage.jpg', 'isolation/vpn.jpg', 'app-management/catalog.jpg', 'app-management/details.jpg', 'app-management/operations.jpg']) {
+      assert.ok(home.includes(`src="${base}assets/${image}"`), `${mode}: story screenshot ${image}`);
+      const bytes = await readFile(join(out, 'assets', image));
+      assert.ok(bytes.length > 10000 && bytes[0] === 0xff && bytes[1] === 0xd8, `${mode}: valid screenshot ${image}`);
+    }
+    const appsStart = home.indexOf('<section class="home-apps"');
+    const appsEnd = home.indexOf('</section>', appsStart) + '</section>'.length;
+    assert.ok(appsStart !== -1 && appsEnd > appsStart, `${mode}: complete apps gallery`);
+    const appsGallery = home.slice(appsStart, appsEnd);
+    assert.ok(appsGallery.includes('<h2 id="app-management-title">Apps</h2>'));
+    assert.equal([...appsGallery.matchAll(/class="home-feature-gallery-column"/g)].length, 3);
+    assert.doesNotMatch(appsGallery, /<p\b|<figcaption>|02 \/ THE CATALOG|class="home-app-list"/);
+    for (const image of ['catalog.jpg', 'details.jpg', 'operations.jpg'])
+      assert.ok(appsGallery.includes(`href="${base}assets/app-management/${image}" aria-label="Open full-size`));
+    assert.ok(appsGallery.includes(`href="${base}apps/"`));
+    for (const [id, title, images] of [
+      ['observability', 'Observability', ['logs.jpg', 'resources.jpg', 'networking.jpg']],
+      ['isolation', 'Isolation', ['containers.jpg', 'storage.jpg', 'vpn.jpg']],
+    ]) {
+      const start = home.indexOf(`<div class="home-chapter home-feature-gallery" id="${id}"`);
+      assert.ok(start !== -1, `${mode}: ${id} gallery`);
+      const end = id === 'observability' ? home.indexOf('<div class="home-chapter home-feature-gallery" id="isolation"', start) : home.indexOf('</section>', start);
+      const chapter = home.slice(start, end);
+      assert.ok(chapter.includes(`<h2 id="${id}-title">${title}</h2>`));
+      assert.equal([...chapter.matchAll(/class="home-feature-gallery-column"/g)].length, 3);
+      assert.doesNotMatch(chapter, /<p\b|<figcaption>|class="home-chapter-row/);
+      for (const image of images)
+        assert.ok(chapter.includes(`href="${base}assets/${id}/${image}" aria-label="Open full-size`), `${mode}: linked ${id} screenshot ${image}`);
+    }
+    assert.equal([...home.matchAll(/class="home-chapter-row(?: home-row-reverse)?"/g)].length, 0);
+    assert.doesNotMatch(home, /02 — ISOLATION|Space for every app|Kubarr does not install Cilium|a separate config claim does not isolate shared media|Its firewall kill switch is enabled by default/);
     assert.equal([...home.matchAll(/class="float-icon icon-depth-[012]"/g)].length, 0);
     assert.match(home, /class="hero-icons" aria-hidden="true"/);
     assert.ok(home.indexOf('classList.add("icon-entrance-ready")') < home.indexOf('assets/site.css'), `${mode}: pre-paint entrance flag`);
+    assert.match(home, /<header class="site-header home-header" style="[^"]*--hero-final-start:[^;"]+;[^"]*--hero-install-duration:[^;"]+"/);
+    assert.doesNotMatch(home, /<header[^>]*visibility:hidden/);
     assert.doesNotMatch(home, /is-entering/);
     assert.equal([...home.matchAll(/--arrival-delay:/g)].length, 0);
     assert.match(home, /data-catalog-source="pending"/);
     assert.doesNotMatch(home, /assets\/apps\/|raw\.githubusercontent\.com/);
     const assetFiles = await readdir(join(out, 'assets'), { recursive: true });
     assert.ok(!assetFiles.some(file => /(^|\/)apps(\/|$)/.test(file)), `${mode}: no bundled app icons`);
-    const features = await readFile(join(out, 'features/index.html'), 'utf8');
     const apps = await readFile(join(out, 'apps/index.html'), 'utf8');
+    assert.match(apps, /<header class="site-header"><div/);
+    assert.doesNotMatch(apps, /class="site-header home-header"|classList.add\("icon-entrance-ready"\)/);
     assert.ok(apps.includes('<title>Apps · Kubarr</title>') && apps.includes('Browse the live Kubarr chart catalog'));
-    assert.ok(apps.includes('Loading apps from GitHub') && apps.includes('href="' + base + 'apps/" aria-current="page">Apps</a>'));
+    assert.ok(apps.includes('Loading apps from GitHub') && apps.includes('href="' + base + '#apps">Apps</a>'));
     assert.doesNotMatch(apps, /class="apps-card"|raw\.githubusercontent\.com/);
-    assert.match(features, /aria-label="Features"/);
-    for (const [id, label, text] of featurePages) {
-      assert.ok(features.includes(`href="${base}features/${id}/">${label}</a>`));
-      assert.ok(features.includes(`href="${base}features/${id}/">${label}<!-- --> →</a>`));
-      assert.ok(!features.includes(text));
+    for (const [oldPath, anchor] of Object.entries(redirects)) {
+      const html = await readFile(join(out, oldPath, 'index.html'), 'utf8');
+      assert.ok(html.includes(`content="0;url=${base}#${anchor}"`) && html.includes(`href="${base}#${anchor}"`), `${mode}: old URL ${oldPath} redirect`);
+      assert.ok(html.includes(`<link rel="canonical" href="${origin}${base}#${anchor}">`), `${mode}: canonical redirect`);
+      assert.ok(!sitemap.includes(`<loc>${origin}${base}${oldPath}</loc>`), `${mode}: redirect not in sitemap`);
+      assert.doesNotMatch(html, /<main|<nav|class="feature-tile/);
     }
-    assert.doesNotMatch(features, /feature-card|features-next|opt-in private config PVC/);
     const appJs = await readFile(join(out, 'assets/app.js'), 'utf8');
     assert.ok(appJs.includes('Copy failed') && appJs.includes('selectNodeContents') && appJs.includes('clipboard'));
     assert.doesNotMatch(appJs, /assets\/apps\/|catalog:sync|\.svg\?raw/);
@@ -118,35 +152,7 @@ try {
       assert.doesNotMatch(html, /(?:\/)?assets\/apps\//, `${mode}/${page}: local app icon reference`);
       const canonical = `${origin}${base}${page}`;
       assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`) && sitemap.includes(`<loc>${canonical}</loc>`), `${mode}/${page}: canonical/sitemap`);
-      if (page.startsWith('features/')) {
-        const selected = featurePages.find(([id]) => page === `features/${id}/`);
-        assert.ok(html.includes(`<title>${selected?.[1] ?? 'Features'} · Kubarr</title>`), `${mode}/${page}: title`);
-        assert.ok(html.includes(`<meta name="description" content="${featureDescriptions[page]}">`), `${mode}/${page}: description`);
-        assert.ok(html.includes(`href="${base}features/"${selected ? '' : ' aria-current="page"'}>Overview</a>`), `${mode}/${page}: overview link`);
-        for (const [id, label, text] of featurePages) {
-          assert.ok(html.includes(`href="${base}features/${id}/"${selected?.[0] === id ? ' aria-current="page"' : ''}>${label}</a>`), `${mode}/${page}: sidebar link`);
-          assert.equal(html.includes(text), selected?.[0] === id, `${mode}/${page}: feature content ${id}`);
-        }
-        if (selected?.[0] === 'observability') {
-          for (const point of ['Resource tracking', 'Track CPU and memory usage in monitoring.', 'Live network view', 'See network activity and connections live.']) assert.ok(html.includes(point), `${mode}/${page}: observability point ${point}`);
-        }
-        if (selected?.[0] === 'isolation') {
-          for (const heading of ['Containers', 'Cilium networking', 'Storage', 'VPN']) assert.ok(html.includes(`<h2>${heading}</h2>`), `${mode}/${page}: isolation heading ${heading}`);
-          assert.ok(html.includes(`href="${base}docs/how-it-works/"`) && html.includes('href="https://github.com/smokeythebandit/kubarr-charts"'), `${mode}/${page}: isolation links`);
-          assert.ok(html.includes('observed traffic, not NetworkPolicy enforcement'));
-          assert.doesNotMatch(html, /assets\/observability\//);
-          assert.equal([...html.matchAll(/class="feature-screenshot"/g)].length, 3);
-          for (const [name, width, height] of [['containers', 896, 587], ['storage', 1440, 984], ['vpn', 1440, 984]]) {
-            const asset = `${base}assets/isolation/${name}.jpg`;
-            assert.ok(html.includes(`href="${asset}"`) && html.includes(`src="${asset}"`) && html.includes(`width="${width}" height="${height}"`), `${mode}/${page}: isolation image ${name}`);
-            const image = await readFile(join(out, `assets/isolation/${name}.jpg`));
-            assert.ok(image.length > 10000 && image[0] === 0xff && image[1] === 0xd8, `${mode}/${page}: valid image ${name}`);
-          }
-        } else {
-          assert.doesNotMatch(html, /assets\/isolation\//);
-        }
-        assert.ok(html.includes('href="' + base + 'features/" aria-current="page">Features</a>'), `${mode}/${page}: main menu`);
-      }
+      assert.ok(html.includes(`href="${base}#apps">Apps</a>`), `${mode}/${page}: main menu`);
       assert.ok(html.includes(`data-route="${page}" data-base="${base}"`), `${mode}/${page}: hydration route`);
       assert.ok(html.includes(`<script src="${base}assets/theme.js"></script>`) && html.indexOf('assets/theme.js') < html.indexOf('assets/site.css'), `${mode}/${page}: pre-paint theme`);
       assert.ok(html.includes(`src="${base}assets/app.js"`), `${mode}/${page}: hydration bundle`);
@@ -156,7 +162,7 @@ try {
       }
       for (const required of ['<html lang="en">', '<meta name="description"', '<title>', '<main ', 'id="main"', 'href="#main"', 'aria-label="Main navigation"', 'aria-expanded="false"']) assert.ok(html.includes(required), `${mode}/${page}: missing ${required}`);
       assert.doesNotMatch(html, /class="theme-control"|<option value="(?:system|light|dark)"/);
-      assert.match(html, /<nav class="nav[\s\S]*?Home[\s\S]*?Features[\s\S]*?Apps[\s\S]*?GitHub ↗/);
+      assert.match(html, /<nav class="nav[\s\S]*?Home[\s\S]*?Apps[\s\S]*?GitHub ↗/);
       const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
       assert.equal(new Set(ids).size, ids.length, `${mode}/${page}: duplicate IDs`);
       for (const match of html.matchAll(/href="#([^"]+)"|aria-controls="([^"]+)"/g)) assert.ok(ids.includes(match[1] ?? match[2]));

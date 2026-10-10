@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppIconField } from './app-icon-field.jsx';
+import { headlineSize, iconFieldLayout } from './hero-layout.js';
 import { heroAnimationStyle } from './hero-timing.js';
 import { CatalogProvider, useCatalog } from './catalog-provider.jsx';
 
-export const routes = ['', 'features/', 'features/observability/', 'features/isolation/', 'features/modularity/', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
+export const routes = ['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
 export const command = 'curl -fsSL https://kubarr.com/install.sh | sudo bash';
 const github = 'https://github.com/smokeythebandit/';
 const mainMenu = [
   { label: 'Home', path: '', current: route => route === '' },
-  { label: 'Features', path: 'features/', current: route => route.startsWith('features/') },
-  { label: 'Apps', path: 'apps/', current: route => route === 'apps/' },
+  { label: 'Apps', path: '#apps' },
   { label: 'GitHub ↗', href: `${github}Kubarr`, className: 'nav-github' },
 ];
 
@@ -20,7 +20,7 @@ function Header({ route, base }) {
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
   }, [open]);
-  return <header className="site-header"><div className="container header-inner">
+  return <header className={route === '' ? 'site-header home-header' : 'site-header'} style={route === '' ? heroAnimationStyle : undefined}><div className="container header-inner">
     <a className="brand" href={base} aria-label="Kubarr home"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
       <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/>
@@ -64,11 +64,252 @@ function InstallCommand() {
 
 function Home({ base }) {
   const catalog = useCatalog();
-  return <main id="main"><section className="hero" aria-labelledby="hero-title" style={heroAnimationStyle}><AppIconField catalog={catalog}/><div className="hero-content"><h1 id="hero-title"><span className="hero-line-first">Your media stack </span><span className="hero-line-second">on <span className="kubernetes-word">Kubernetes</span><img className="kubernetes-logo" src={`${base}assets/kubernetes-icon-color.svg`} alt="" aria-hidden="true"/></span></h1><InstallCommand/></div></section></main>;
+  const heroRef = useRef(null);
+  useLayoutEffect(() => {
+    const hero = heroRef.current;
+    const heading = hero.querySelector('h1');
+    const command = hero.querySelector('.hero-install');
+    const header = document.querySelector('.home-header');
+    let frame = 0;
+    let active = true;
+    const layout = () => {
+      frame = 0;
+      // Recheck the natural viewport height on every resize, so a previously
+      // needed scroll fallback can disappear when more room becomes available.
+      hero.style.minHeight = '';
+      const box = hero.getBoundingClientRect();
+      if (!box.width || !box.height) return; // No layout engine (e.g. SSR or DOM-only tests).
+      const currentSize = parseFloat(getComputedStyle(heading).fontSize);
+      const lines = heading.querySelectorAll('.hero-line-first, .hero-line-second');
+      const measuredWidth = Math.max(...[...lines].map(line => line.scrollWidth));
+      const font = headlineSize(box.width, box.height, header.getBoundingClientRect().height,
+        command.getBoundingClientRect().height, measuredWidth, currentSize);
+      const value = `${font}px`;
+      if (hero.style.getPropertyValue('--hero-font-size') !== value) hero.style.setProperty('--hero-font-size', value);
+      const icons = [...hero.querySelectorAll('.float-icon')];
+      let field;
+      // At constrained heights enlarge only as much as needed for every icon.
+      // No icons are hidden, and the command remains reachable by scrolling.
+      for (let height = box.height; ; height += 24) {
+        if (height > box.height) hero.style.minHeight = `${height}px`;
+        const title = heading.getBoundingClientRect();
+        field = iconFieldLayout({ width: box.width, height: hero.getBoundingClientRect().height,
+          viewportHeight: box.height,
+          // The homepage header is fixed; scrolling must not move its exclusion
+          // zone down through the hero when the catalog arrives later.
+          headerBottom: header.getBoundingClientRect().height,
+          titleLeft: title.left - box.left, titleRight: title.right - box.left,
+          titleTop: title.top - box.top, installTop: command.offsetTop,
+          installBottom: command.offsetTop + command.offsetHeight, count: icons.length });
+        if (field.fits || height > Math.max(5000, icons.length * 80)) break;
+      }
+      icons.forEach((icon, index) => {
+        const spot = field.spots[index];
+        icon.style.setProperty('--icon-x', `${spot.x}px`);
+        icon.style.setProperty('--icon-y', `${spot.y}px`);
+        icon.style.setProperty('--icon-size', `${spot.size}px`);
+        icon.style.setProperty('--motion-scale', `${Math.min(1, spot.size / 160)}`);
+      });
+    };
+    const schedule = () => { if (active && !frame) frame = requestAnimationFrame(layout); };
+    layout();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    for (const element of [hero, heading, command, header]) observer?.observe(element);
+    window.addEventListener('resize', schedule);
+    window.visualViewport?.addEventListener('resize', schedule);
+    document.fonts?.ready.then(schedule);
+    return () => {
+      active = false;
+      observer?.disconnect();
+      window.removeEventListener('resize', schedule);
+      window.visualViewport?.removeEventListener('resize', schedule);
+      cancelAnimationFrame(frame);
+    };
+  }, [catalog.apps]);
+  return <main id="main"><section ref={heroRef} className="hero" aria-labelledby="hero-title" style={heroAnimationStyle}><AppIconField catalog={catalog}/><div className="hero-content"><h1 id="hero-title"><span className="hero-line-first">Your media stack </span><span className="hero-line-second">on <span className="kubernetes-lockup"><span className="kubernetes-word">Kubernetes</span><img className="kubernetes-logo" src={`${base}assets/kubernetes-icon-color.svg`} alt="" aria-hidden="true"/></span></span></h1><InstallCommand/></div><a className="hero-scroll" href="#features">Explore Kubarr <span aria-hidden="true">↓</span></a></section><HomeFeatures base={base}/></main>;
+}
+
+function HomeFeatures({ base }) {
+  const [screenshot, setScreenshot] = useState(null);
+  const dialogRef = useRef(null);
+  const openerRef = useRef(null);
+  const sourceRef = useRef(null);
+  const imageRef = useRef(null);
+  const animationRef = useRef(null);
+  const sequenceRef = useRef(0);
+  const overflowRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const closeScrollRef = useRef(null);
+  const stopAnimation = () => {
+    animationRef.current?.cancel();
+    animationRef.current = null;
+  };
+  const sourceRect = () => {
+    const source = sourceRef.current;
+    if (!source?.isConnected) return null;
+    const rect = source.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth ? rect : null;
+  };
+  // Transform the actual fitted image, not the dialog/top-layer box. Each axis
+  // gets its own scale so differing thumbnail and full-image ratios line up.
+  const frames = (from, to) => ({
+    transformOrigin: 'top left',
+    transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+  });
+  const motion = (image, keyframes, duration, done) => {
+    try {
+      const animation = image.animate(keyframes, { duration, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'both' });
+      animationRef.current = animation;
+      animation.finished.then(() => {
+        if (animationRef.current !== animation) return;
+        animationRef.current = null;
+        animation.cancel();
+        done?.();
+      }).catch(() => {});
+      return true;
+    } catch { return false; }
+  };
+  const closeDialog = () => {
+    const y = closeScrollRef.current ?? window.scrollY;
+    dialogRef.current?.close();
+    closeScrollRef.current = null;
+    // The top layer's moving image can disturb scroll anchoring while closing.
+    if (window.scrollY !== y) window.scrollTo({ top: y, behavior: 'instant' });
+  };
+  const finishClose = () => {
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+    if (dialogRef.current?.open && dialogRef.current.dataset.state === 'closing') closeDialog();
+  };
+  const dismiss = () => {
+    const dialog = dialogRef.current;
+    if (!dialog?.open || dialog.dataset.state === 'closing') return;
+    closeScrollRef.current = window.scrollY;
+    ++sequenceRef.current;
+    stopAnimation();
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      closeDialog();
+      return;
+    }
+    if (dialog.dataset.state === 'pending') { closeDialog(); return; }
+    dialog.dataset.state = 'closing';
+    const image = imageRef.current;
+    const from = sourceRect(); // Re-measure after scroll/resize, never use the opening snapshot.
+    const to = image?.getBoundingClientRect();
+    if (dialog.dataset.motion === 'shared' && from && to?.width && to.height && image?.animate) {
+      if (motion(image, [{ transform: 'none', transformOrigin: 'top left' }, frames(from, to)], 260, finishClose)) {
+        closeTimerRef.current = setTimeout(finishClose, 400);
+        return;
+      }
+    }
+    dialog.dataset.motion = 'fallback';
+    // Keep the native modal/top layer (and its focus trap) until the exit finishes.
+    // animationend may not fire when styles are unavailable or the tab is backgrounded.
+    closeTimerRef.current = setTimeout(finishClose, 220);
+  };
+  const openScreenshot = (event, image) => {
+    const dialog = dialogRef.current;
+    // Keep the ordinary full-size image link working without JS or dialog support.
+    if (!dialog?.showModal || !dialog.close || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (dialog.open) { event.preventDefault(); return; }
+    closeScrollRef.current = null;
+    openerRef.current = event.currentTarget;
+    sourceRef.current = event.currentTarget.querySelector('img');
+    dialog.dataset.state = 'pending';
+    dialog.dataset.motion = 'fallback';
+    overflowRef.current = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    try { dialog.showModal(); event.preventDefault(); setScreenshot(image); }
+    catch {
+      document.body.style.overflow = overflowRef.current;
+      overflowRef.current = null;
+      openerRef.current = null;
+      sourceRef.current = null;
+      delete dialog.dataset.state;
+      setScreenshot(null);
+      // Let the original anchor navigate if the browser could not open the modal.
+    }
+  };
+  useLayoutEffect(() => {
+    if (!screenshot) return;
+    const dialog = dialogRef.current;
+    const image = imageRef.current;
+    const sequence = ++sequenceRef.current;
+    const ready = () => {
+      if (sequence !== sequenceRef.current || !dialog?.open || dialog.dataset.state !== 'pending') return;
+      const from = sourceRect();
+      const to = image.getBoundingClientRect();
+      dialog.dataset.state = 'open';
+      image.style.visibility = '';
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || !from || !to.width || !to.height || !image.animate) return;
+      dialog.dataset.motion = 'shared';
+      if (!motion(image, [frames(from, to), { transform: 'none', transformOrigin: 'top left' }], 320)) {
+        dialog.dataset.motion = 'fallback';
+      }
+    };
+    // decode() handles cached and uncached images without measuring a placeholder.
+    // load/error are the fallback for browsers without decode().
+    if (image.decode) image.decode().then(ready, ready);
+    else if (image.complete) ready();
+    else {
+      image.addEventListener('load', ready);
+      image.addEventListener('error', ready);
+      return () => { image.removeEventListener('load', ready); image.removeEventListener('error', ready); };
+    }
+  }, [screenshot]);
+  const restore = () => {
+    ++sequenceRef.current;
+    stopAnimation();
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+    closeScrollRef.current = null;
+    if (dialogRef.current) { delete dialogRef.current.dataset.state; delete dialogRef.current.dataset.motion; }
+    sourceRef.current = null;
+    if (overflowRef.current !== null) {
+      document.body.style.overflow = overflowRef.current;
+      overflowRef.current = null;
+    }
+    if (openerRef.current?.isConnected) openerRef.current.focus({ preventScroll: true });
+    openerRef.current = null;
+    setScreenshot(null);
+  };
+  useEffect(() => () => {
+    ++sequenceRef.current;
+    stopAnimation();
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+    if (dialogRef.current?.open) dialogRef.current.close();
+    if (overflowRef.current !== null) document.body.style.overflow = overflowRef.current;
+    overflowRef.current = null;
+  }, []);
+  return <><section className="home-features" id="features" aria-label="Features"><div className="container">
+    <FeatureGallery feature={features[0]} base={base} images={observabilityImages} onOpen={openScreenshot}/>
+    <FeatureGallery feature={features[1]} base={base} images={isolationImages} onOpen={openScreenshot}/>
+  </div></section><HomeApps base={base} onOpen={openScreenshot}/><dialog ref={dialogRef} className="screenshot-dialog" aria-label={screenshot ? `${screenshot.title} screenshot` : 'Screenshot'} onClose={restore} onCancel={event => { event.preventDefault(); dismiss(); }} onAnimationEnd={event => { if (event.target === event.currentTarget && event.animationName === 'screenshot-exit') finishClose(); }} onClick={event => {
+    if (event.target !== event.currentTarget) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dismiss();
+  }}><div className="screenshot-dialog-content"><button type="button" className="screenshot-close" autoFocus onClick={dismiss} aria-label="Close screenshot"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>{screenshot && <img ref={imageRef} src={screenshot.src} alt={screenshot.alt} width={screenshot.width} height={screenshot.height} style={{ visibility: 'hidden' }}/>}</div></dialog></>;
+}
+
+function FeatureGallery({ feature, base, images, onOpen }) {
+  return <div className="home-chapter home-feature-gallery" id={feature.id} aria-labelledby={`${feature.id}-title`}>
+    <h2 id={`${feature.id}-title`}>{feature.title}</h2>
+    <div className="home-feature-gallery-cards">
+      {feature.points.filter(([title]) => images[title]).map(([title]) => <article className="home-feature-gallery-column" key={title}><h3>{title}</h3><FeatureImage title={title} base={base} images={images} folder={feature.folder ?? feature.id} hideCaption onOpen={onOpen}/></article>)}
+    </div>
+  </div>;
+}
+
+function HomeApps({ base, onOpen }) {
+  return <section className="home-apps" id="apps" aria-labelledby="app-management-title"><div className="container">
+    <FeatureGallery feature={appGallery} base={base} images={appImages} onOpen={onOpen}/>
+    <a className="home-apps-cta" href={`${base}apps/`}>Browse supported apps <span aria-hidden="true">↗</span></a>
+  </div></section>;
 }
 
 function Apps() {
-  const { apps, revision, source, error, retry } = useCatalog();
+  const { apps, revision, source, error, checking, retry } = useCatalog();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const categories = [...new Set(apps.map(app => app.category))].sort((a, b) => a.localeCompare(b));
@@ -79,8 +320,9 @@ function Apps() {
     <span className="eyebrow">Chart catalog</span><h1>Apps</h1>
     <p className="apps-lede">Browse chart-backed apps from the <a href="https://github.com/smokeythebandit/kubarr-charts">Kubarr charts repository</a>. Availability and requirements depend on each chart and your cluster.</p>
     {source === 'pending' && !error ? <p role="status">Loading apps from GitHub…</p> : null}
-    {source === 'cache' && <p className="apps-state" role="status">Showing cached GitHub catalog{error ? ' — the latest update could not be loaded.' : ' while checking for updates…'}</p>}
+    {source === 'cache' && <p className="apps-state" role="status">Showing cached GitHub catalog{error ? ' — the latest update could not be loaded.' : checking ? ' while checking for updates…' : ' (saved within the last hour).'}</p>}
     {source === 'live' && <p className="apps-state" role="status">Catalog up to date from GitHub.</p>}
+    {!error && apps.length > 0 && <button type="button" onClick={retry} disabled={checking}>Refresh apps</button>}
     {error && <div className="apps-error" role="alert"><p>{source === 'cache' ? 'GitHub is unavailable right now. You can still browse the saved catalog.' : 'Could not load the app catalog from GitHub. Check your connection or try again later.'}</p><button type="button" onClick={retry}>Retry loading apps</button></div>}
     {apps.length > 0 && <>
       <div className="apps-controls"><label htmlFor="apps-search">Search apps</label><input id="apps-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search names and descriptions"/>
@@ -97,7 +339,7 @@ function Apps() {
 
 const features = [
   { id: 'observability', title: 'Observability', points: [
-    ['Logging', 'View application logs in the dashboard.'],
+    ['Unified logging', 'View application logs in the dashboard.'],
     ['Resource tracking', 'Track CPU and memory usage in monitoring.'],
     ['Live network view', 'See network activity and connections live.'],
   ], description: 'Available observability data depends on the monitoring services deployed.' },
@@ -105,28 +347,31 @@ const features = [
     ['Containers', 'Kubarr runs chart-backed apps in Kubernetes pods, usually in an app-specific namespace. Containers in the same pod share its network; separate app pods and namespaces make workloads easier to manage, but they are not separate virtual machines or an absolute security boundary.'],
     ['Cilium networking', 'App charts enable Kubernetes NetworkPolicies by default for selected ingress and egress paths, including gateway access, DNS and public-network egress. Cilium can enforce these policies if you install and configure it as your cluster’s CNI; Kubarr does not install Cilium. Another NetworkPolicy-capable CNI can also enforce them. Check chart rules and your CNI: namespaces alone do not block traffic, and the gateway’s app permissions do not protect direct service access inside the cluster.'],
     ['Storage', 'Media libraries and downloads can use a shared NFS volume across apps. By default, many media charts also put each app’s config in a subdirectory of that same share; opt-in split storage puts config on a separate app PVC instead. A shared volume is accessible to apps that mount it, even in different namespaces, and a separate config claim does not isolate shared media. Check each chart’s storage layout and backups.'],
-    ['VPN', 'For VPN-enabled app charts, assign a VPN provider to an app and redeploy it to add a Gluetun sidecar in the app’s pod. Kubarr supports WireGuard and OpenVPN credentials; the sidecar routes that pod’s traffic through the configured VPN. Its firewall kill switch is enabled by default and can be overridden per app. VPN is off until configured, requires a working provider and /dev/net/tun on the node, and any allowed outbound subnets can bypass the tunnel.'],
+    ['Networking', 'For VPN-enabled app charts, assign a VPN provider to an app and redeploy it to add a Gluetun sidecar in the app’s pod. Kubarr supports WireGuard and OpenVPN credentials; the sidecar routes that pod’s traffic through the configured VPN. Its firewall kill switch is enabled by default and can be overridden per app. VPN is off until configured, requires a working provider and /dev/net/tun on the node, and any allowed outbound subnets can bypass the tunnel.'],
   ] },
-  { id: 'modularity', title: 'Modularity', description: 'Chart-based apps are independent components you can install and manage individually. Each chart defines its own workloads, services and storage requirements.' },
 ];
 const observabilityImages = {
-  Logging: { file: 'logs.jpg', height: 634, alt: 'Dark Kubarr Logs screen with filters and real application log entries from a local kind cluster', caption: 'Logs: filter and search application messages.' },
-  'Resource tracking': { file: 'resources.jpg', height: 1074, alt: 'Dark Kubarr Resources screen with live CPU, memory and network metrics, GPU telemetry unavailable, and per-app usage from a local kind cluster', caption: 'Resources: cluster overview and per-app CPU, memory, and network usage.' },
-  'Live network view': { file: 'networking.jpg', height: 1314, alt: 'Dark Kubarr Networking screen with a live local kind cluster topology, bandwidth totals and network statistics', caption: 'Networking: observed traffic flow and per-app statistics.' },
+  'Unified logging': { file: 'logs.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr Logs screen filtered to real Sabnzbd setup messages from a local kind cluster', caption: 'Logs: filter and search application messages.' },
+  'Resource tracking': { file: 'resources.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr Resources screen with live CPU, memory and network metrics, GPU telemetry unavailable, and per-app usage from a local kind cluster', caption: 'Resources: cluster overview and per-app CPU, memory, and network usage.' },
+  'Live network view': { file: 'networking.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr Networking screen with a live local kind cluster topology, bandwidth totals and network statistics', caption: 'Networking: observed traffic flow and per-app statistics.' },
 };
 const isolationImages = {
-  Containers: { file: 'containers.jpg', width: 896, height: 587, alt: 'Dark Kubarr pod details for Immich with four running pods and their container readiness and restart counts', caption: 'Immich pod details: containers and readiness.' },
-  Storage: { file: 'storage.jpg', width: 1440, height: 984, alt: 'Dark Kubarr Storage browser listing directories at the root of the NFS volume', caption: 'Storage browser: directories on the NFS volume.' },
-  VPN: { file: 'vpn.jpg', width: 1440, height: 984, alt: 'Dark Kubarr VPN settings listing a WireGuard provider and two app assignments with kill switches on', caption: 'VPN settings: provider and app assignments.' },
+  Containers: { file: 'containers.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr pod details for Immich with four running pods and their container readiness and restart counts', caption: 'Immich pod details: containers and readiness.' },
+  Storage: { file: 'storage.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr Storage browser listing directories at the root of the NFS volume', caption: 'Storage browser: directories on the NFS volume.' },
+  Networking: { file: 'vpn.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr VPN settings listing a WireGuard provider and two app assignments with kill switches on', caption: 'VPN settings: provider and app assignments.' },
 };
-function FeatureImage({ title, base, images, folder }) {
+const appGallery = { id: 'app-management', folder: 'app-management', title: 'Apps', points: [
+  ['App catalog'], ['App details'], ['Operations'],
+] };
+const appImages = {
+  'App catalog': { file: 'catalog.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr Apps catalog with chart-backed app categories, health indicators and the Sonarr detail panel on a local kind cluster' },
+  'App details': { file: 'details.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr Apps screen with the Installed filter and Immich detail panel showing its running status, category and storage information' },
+  Operations: { file: 'operations.jpg', width: 1440, height: 1214, alt: 'Dark Kubarr Apps Operations view showing worker activity, waiting queue and real completed and failed operation counts' },
+};
+function FeatureImage({ title, base, images, folder, onOpen, hideCaption = false }) {
   const { file, width = 1440, height, alt, caption } = images[title];
   const src = `${base}assets/${folder}/${file}`;
-  return <figure className="feature-screenshot"><a href={src} aria-label={`Open full-size ${title} screenshot`}><img src={src} alt={alt} width={width} height={height} loading="lazy" decoding="async"/></a><figcaption>{caption}</figcaption></figure>;
-}
-function Features({ route, base }) {
-  const feature = features.find(({ id }) => route === `features/${id}/`);
-  return <main className="container features-layout" id="main"><nav className="features-nav" aria-label="Features"><p className="eyebrow">Features</p><a href={`${base}features/`} aria-current={route === 'features/' ? 'page' : undefined}>Overview</a>{features.map(({ id, title }) => <a key={id} href={`${base}features/${id}/`} aria-current={feature?.id === id ? 'page' : undefined}>{title}</a>)}</nav><div className="features-content">{feature ? <><h1>{feature.title}</h1>{(feature.lede || feature.id === 'observability') && <p className="features-lede">{feature.lede ?? 'Explore Kubarr’s Logs, Resources, and Networking screens.'}</p>}{feature.points?.map(([title, description]) => <section key={title}><h2>{title}</h2><p>{feature.id === 'isolation' && title === 'Cilium networking' ? <>{description} The Networking screen shows observed traffic, not NetworkPolicy enforcement.</> : description}</p>{feature.id === 'observability' && <FeatureImage title={title} base={base} images={observabilityImages} folder="observability"/>}{feature.id === 'isolation' && isolationImages[title] && <FeatureImage title={title} base={base} images={isolationImages} folder="isolation"/>}</section>)}{feature.id === 'isolation' && <div className="feature-note"><p>For chart-specific storage, network and VPN settings, see the <a href={`${github}kubarr-charts`}>charts repository</a>, or read <a href={`${base}docs/how-it-works/`}>how Kubarr works</a>.</p></div>}{feature.description && <p>{feature.description}</p>}</> : <><h1>Features</h1><p className="features-lede">The essentials for managing apps on your Kubernetes cluster.</p><div className="feature-links">{features.map(({ id, title }) => <a key={id} href={`${base}features/${id}/`}>{title} →</a>)}</div></>}</div></main>;
+  return <figure className="feature-screenshot"><a href={src} aria-label={`Open full-size ${title} screenshot`} onClick={event => onOpen(event, { src, alt, title, width, height })}><img src={src} alt={alt} width={width} height={height} loading="lazy" decoding="async"/></a>{!hideCaption && <figcaption>{caption}</figcaption>}</figure>;
 }
 
 function Docs({ route, base }) {
@@ -162,5 +407,5 @@ function HowItWorks({ base }) {
 
 export function App({ route, base }) {
   if (!routes.includes(route)) throw new Error(`Unknown page: ${route}`);
-  return <><a className="skip" href="#main">Skip to content</a><Header route={route} base={base}/>{route === '' ? <CatalogProvider><Home base={base}/></CatalogProvider> : route === 'apps/' ? <CatalogProvider><Apps/></CatalogProvider> : route.startsWith('features/') ? <Features route={route} base={base}/> : <Docs route={route} base={base}/>}</>;
+  return <><a className="skip" href="#main">Skip to content</a><Header route={route} base={base}/>{route === '' ? <CatalogProvider><Home base={base}/></CatalogProvider> : route === 'apps/' ? <CatalogProvider><Apps/></CatalogProvider> : <Docs route={route} base={base}/>}</>;
 }

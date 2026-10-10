@@ -3,7 +3,7 @@ export const curatedIds = ['sonarr', 'plex', 'immich', 'radarr', 'jellyfin', 'qb
   'deluge', 'sabnzbd', 'frigate', 'headlamp', 'redmine', 'jellyseerr', 'jackett',
   'transmission', 'rutorrent', 'jenkins', 'scm-manager', 'grafana'];
 
-// Uneven, shuffled starts overlap the fades from each icon's mount time.
+// Uneven, shuffled starts overlap each icon's slide from its mount time.
 export function entranceDelays(count) {
   const order = Array.from({ length: count }, (_, index) => index);
   // Seeded Fisher-Yates is a permutation for every count (including multiples of 7).

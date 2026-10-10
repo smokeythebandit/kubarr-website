@@ -3,6 +3,8 @@ import YAML from 'yaml';
 export const repository = 'smokeythebandit/kubarr-charts';
 export const treeURL = `https://api.github.com/repos/${repository}/git/trees/main?recursive=1`;
 export const cacheKey = 'kubarr-website-catalog-v1';
+export const freshFor = 60 * 60 * 1000;
+export const retainFor = 7 * 24 * 60 * 60 * 1000;
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const sha = /^[a-f0-9]{40}$/;
 const chartPath = /^([a-z0-9]+(?:-[a-z0-9]+)*)\/([a-z0-9]+(?:-[a-z0-9]+)*)\/Chart\.yaml$/;
@@ -59,7 +61,7 @@ async function requestText(url, signal, fetcher, limit) {
   return text;
 }
 
-export async function fetchLiveCatalog({ fetcher = fetch, signal, timeout = 12000 } = {}) {
+export async function fetchLiveCatalog({ fetcher = fetch, signal, timeout = 12000, cached } = {}) {
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   signal?.addEventListener('abort', onAbort, { once: true });
@@ -68,6 +70,8 @@ export async function fetchLiveCatalog({ fetcher = fetch, signal, timeout = 1200
   try {
     const tree = JSON.parse(await requestText(treeURL, controller.signal, fetcher, 1024 * 1024));
     const charts = discoverCharts(tree);
+    // A validated, pinned catalog needs no Chart.yaml downloads if the tree has not changed.
+    if (cached?.revision === tree.sha && cached.apps?.length && !controller.signal.aborted) return normalizeCatalog(cached.apps.map(app => ({ ...app, icon: !!app.icon })), tree.sha);
     const apps = [];
     let cursor = 0;
     // Four workers cap simultaneous raw requests. No caller-controlled URLs.
@@ -89,15 +93,15 @@ export async function fetchLiveCatalog({ fetcher = fetch, signal, timeout = 1200
 export function readCachedCatalog(storage) {
   try {
     const value = JSON.parse(storage.getItem(cacheKey));
-    if (value?.version !== 1 || value.repository !== repository || !Number.isFinite(value.savedAt) || value.savedAt > Date.now() || Date.now() - value.savedAt > 7 * 86400000) return null;
+    if (value?.version !== 1 || value.repository !== repository || !Number.isFinite(value.savedAt) || value.savedAt > Date.now() || Date.now() - value.savedAt > retainFor) return null;
     // Reconstruct icon URLs from fixed path segments; never trust stored URLs.
     return { ...normalizeCatalog(value.apps, value.revision), savedAt: value.savedAt };
   } catch { return null; }
 }
 
-export function writeCachedCatalog(storage, catalog) {
+export function writeCachedCatalog(storage, catalog, savedAt = Date.now()) {
   try {
     const checked = normalizeCatalog(catalog.apps.map(app => ({ ...app, icon: !!app.icon })), catalog.revision);
-    storage.setItem(cacheKey, JSON.stringify({ version: 1, repository, revision: checked.revision, savedAt: Date.now(), apps: checked.apps.map(({ id, group, name, category, icon, description }) => ({ id, group, name, category, icon: !!icon, ...(description ? { description } : {}) })) }));
+    storage.setItem(cacheKey, JSON.stringify({ version: 1, repository, revision: checked.revision, savedAt, apps: checked.apps.map(({ id, group, name, category, icon, description }) => ({ id, group, name, category, icon: !!icon, ...(description ? { description } : {}) })) }));
   } catch { /* Storage may be blocked or full. */ }
 }

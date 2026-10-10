@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cacheKey, discoverCharts, fetchLiveCatalog, normalizeCatalog, parseChart, readCachedCatalog, repository, treeURL, writeCachedCatalog } from './live-catalog.js';
+import { cacheKey, discoverCharts, fetchLiveCatalog, freshFor, normalizeCatalog, parseChart, readCachedCatalog, repository, retainFor, treeURL, writeCachedCatalog } from './live-catalog.js';
 
 const revision = 'a'.repeat(40);
 const chart = (id, extra = '') => `name: ${id}\nannotations:\n  kubarr.io/category: media-server\n  kubarr.io/display-name: ${id.toUpperCase()}\n${extra}`;
@@ -21,6 +21,9 @@ describe('live GitHub catalog', () => {
     expect(catalog.apps[1].icon).toBe(`https://raw.githubusercontent.com/${repository}/${revision}/media-server/zeta/icon.svg`);
     expect(fetcher).toHaveBeenCalledTimes(4);
     expect(fetcher.mock.calls.slice(1).every(([url]) => url.startsWith(`https://raw.githubusercontent.com/${repository}/${revision}/`))).toBe(true);
+    fetcher.mockClear();
+    expect(await fetchLiveCatalog({ fetcher, cached: catalog })).toEqual(catalog);
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it('rejects incomplete trees, malformed responses, rate limits and unavailable charts', async () => {
@@ -55,6 +58,15 @@ describe('live GitHub catalog', () => {
     expect(readCachedCatalog(store)).toBeNull();
     store.setItem(cacheKey, JSON.stringify({ ...tampered, savedAt: Date.now() - 8 * 86400000 }));
     expect(readCachedCatalog(store)).toBeNull();
+    writeCachedCatalog(store, catalog, Date.now() - freshFor);
+    expect(readCachedCatalog(store)).not.toBeNull();
+    writeCachedCatalog(store, catalog, Date.now() - retainFor - 1);
+    expect(readCachedCatalog(store)).toBeNull();
+    for (const savedAt of [Date.now() + 1000, 'today', null, Number.POSITIVE_INFINITY]) {
+      writeCachedCatalog(store, catalog);
+      store.setItem(cacheKey, JSON.stringify({ ...JSON.parse(storage.get(cacheKey)), savedAt }));
+      expect(readCachedCatalog(store)).toBeNull();
+    }
   });
 
   it('preserves optional chart descriptions through validation and cache without requiring them on older entries', () => {

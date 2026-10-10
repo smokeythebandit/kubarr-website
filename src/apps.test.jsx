@@ -4,7 +4,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { App } from './app.jsx';
-import { cacheKey, repository, treeURL } from './live-catalog.js';
+import { resetCatalogCacheForTests } from './catalog-provider.jsx';
+import { cacheKey, freshFor, repository, treeURL } from './live-catalog.js';
 
 const revision = 'c'.repeat(40);
 const response = (body, status = 200) => ({ ok: status === 200, status, headers: { get: () => null }, text: async () => body });
@@ -24,7 +25,19 @@ function github() {
     return response(`name: ${app.id}\ndescription: ${app.description ?? ''}\nannotations:\n  kubarr.io/category: ${app.category}\n  kubarr.io/display-name: ${app.name}\n`);
   });
 }
-afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); resetCatalogCacheForTests(); localStorage.clear(); vi.unstubAllGlobals(); });
+
+it('uses real GitHub chart entries only for the homepage hero, not the screenshot gallery', async () => {
+  const fetcher = github();
+  vi.stubGlobal('fetch', fetcher);
+  expect(renderToString(<App route="" base="/kubarr-website/"/>)).not.toContain('home-app-list');
+  const { container } = render(<App route="" base="/kubarr-website/"/>);
+  await waitFor(() => expect(container.querySelectorAll('.hero-icons .float-icon')).toHaveLength(3));
+  expect(fetcher).toHaveBeenCalledTimes(4);
+  expect(container.querySelector('.hero-icons img').getAttribute('src')).toBe(`https://raw.githubusercontent.com/${repository}/${revision}/media-server/alpha/icon.svg`);
+  expect(container.querySelector('#apps .home-feature-gallery-column')).toBeTruthy();
+  expect(container.querySelector('.home-app-list')).toBeNull();
+});
 
 it('prerenders an empty loading shell, then searches names/descriptions and filters categories without extra requests', async () => {
   const fetcher = github();
@@ -57,7 +70,7 @@ it('prerenders an empty loading shell, then searches names/descriptions and filt
 });
 
 it('keeps saved GitHub catalog on failure and retries successfully', async () => {
-  localStorage.setItem(cacheKey, JSON.stringify({ version: 1, repository, revision, savedAt: Date.now(), apps: entries.map(({ id, group, name, category, description, icon }) => ({ id, group, name, category, description, icon })) }));
+  localStorage.setItem(cacheKey, JSON.stringify({ version: 1, repository, revision, savedAt: Date.now() - freshFor - 1, apps: entries.map(({ id, group, name, category, description, icon }) => ({ id, group, name, category, description, icon })) }));
   const fetcher = github();
   vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response('', 429)).mockImplementation(fetcher));
   render(<App route="apps/" base="/"/>);
