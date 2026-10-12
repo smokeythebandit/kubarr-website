@@ -11,8 +11,18 @@ import YAML from 'yaml';
 const workflow = YAML.parse(await readFile('.github/workflows/pages.yml', 'utf8'));
 const buildStep = workflow.jobs.deploy.steps.find(step => step.run === 'npm run build');
 assert.equal(buildStep?.env?.SITE_ORIGIN, 'https://kubarr.com', 'Pages build must target the custom domain');
+const cliWorkflow = YAML.parse(await readFile('.github/workflows/cli-release.yml', 'utf8'));
+assert.equal(cliWorkflow.jobs.build.strategy.matrix.include.length, 2, 'prebuilt CLI must target two Linux architectures');
+assert.deepEqual(cliWorkflow.jobs.build.strategy.matrix.include.map(target => target.arch), ['x86_64', 'aarch64']);
+assert.equal(cliWorkflow.jobs.publish.permissions.contents, 'write', 'CLI release publishing needs contents write permission');
+const installerSource = await readFile('src/install.sh', 'utf8');
+const installerSyntax = spawnSync('bash', ['-n', 'src/install.sh'], { encoding: 'utf8' });
+assert.equal(installerSyntax.status, 0, `install.sh syntax: ${installerSyntax.stderr}`);
+assert.match(installerSource, /releases\/download\/kubarr-cli-latest/);
+assert.match(installerSource, /sha256sum --check/);
+assert.match(installerSource, /\/usr\/local\/bin\/kubarr bootstrap/);
 
-const pages = ['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/'];
+const pages = ['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/', 'docs/using-kubarr/', 'docs/observability/unified-logging/', 'docs/observability/resource-tracking/', 'docs/observability/live-network-view/', 'docs/isolation/containers/', 'docs/isolation/cilium-networking/', 'docs/isolation/storage/', 'docs/isolation/vpn/', 'docs/apps/catalog/', 'docs/apps/details/', 'docs/apps/operations/'];
 const redirects = { 'features/': 'features', 'features/observability/': 'observability', 'features/isolation/': 'isolation', 'features/modularity/': 'apps' };
 for (const [name, hash] of [
   // Kubarr/code/frontend/public/favicon.svg (the app's Ship icon).
@@ -30,7 +40,7 @@ assert.match(css, /height:100vh;height:100svh;height:100dvh/);
 assert.doesNotMatch(css, /min-height:1[68]00px/);
 assert.ok(mobile.includes('--move-x:var(--sdx);--move-y:var(--sdy)'));
 assert.match(css, /@keyframes icon-breathe\{0%\{transform:translate3d\(calc\(var\(--move-x\) \* var\(--motion-scale,\.5\)/);
-assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.home \.float-icon img,\.home \.icon-wobble\{animation:none\}\.icon-entrance-ready \.home \.hero-line-first,[^}]*\.hero-install,[^}]*\.icon-entrance\{visibility:visible;opacity:1;transform:none;animation:none\}\.icon-entrance-ready \.home \.home-header\{visibility:visible;opacity:1;animation:none\}\.icon-entrance-ready \.home \.hero-icons\{visibility:visible;opacity:\.6;animation:none\}\}/);
+assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.home \.float-icon img,\.home \.icon-wobble\{animation:none\}\.icon-entrance-ready \.home \.hero-line-first,[^}]*\.hero-install,[^}]*\.icon-entrance\{visibility:visible;opacity:1;transform:none;animation:none\}\.icon-entrance-ready \.home \.home-header\{visibility:visible;opacity:1;animation:none\}\.icon-entrance-ready \.home \.hero-icons\{visibility:visible;opacity:\.6;animation:none\}\.icon-entrance-ready \.home \.hero-scroll\{visibility:visible;opacity:1;animation:none\}\}/);
 assert.match(css, /\.icon-entrance-ready \.home \.hero-icons\{animation:icons-dim var\(--hero-install-duration\) ease-out var\(--hero-final-start\) both\}/);
 assert.match(css, /\.icon-entrance-ready \.home \.home-header\{animation:header-arrive var\(--hero-install-duration\) ease-out var\(--hero-final-start\) both\}/);
 assert.match(css, /@keyframes header-arrive\{0%\{visibility:hidden;opacity:0\}\.01%\{visibility:visible;opacity:0\}100%\{visibility:visible;opacity:1\}\}/);
@@ -73,6 +83,7 @@ try {
     if (result.status !== 0) throw new Error(result.stderr || result.stdout);
     const sitemap = await readFile(join(out, 'sitemap.xml'), 'utf8');
     const robots = await readFile(join(out, 'robots.txt'), 'utf8');
+    assert.equal(await readFile(join(out, 'install.sh'), 'utf8'), installerSource, `${mode}: root install.sh published`);
     assert.ok(robots.includes(`${origin}${base}sitemap.xml`));
     if (mode === 'production') {
       assert.doesNotMatch(sitemap + robots, /\/kubarr-website\//, 'production metadata must not use the project prefix');
@@ -81,7 +92,7 @@ try {
     assert.match(home, /<h1 id="hero-title"><span class="hero-line-first">Your media stack <\/span><span class="hero-line-second">on <span class="kubernetes-lockup"><span class="kubernetes-word">Kubernetes<\/span><img class="kubernetes-logo"/);
     assert.doesNotMatch(home, /Your media stack,/);
     assert.match(home, /curl -fsSL https:\/\/kubarr\.com\/install\.sh \| sudo bash/);
-    assert.match(home, /aria-label="Copy install command"/);
+    assert.match(home, /aria-label="Click to copy install command"/);
     assert.doesNotMatch(home, /03 \/ GET STARTED|Make it yours\.|Bring your cluster\. Choose your apps\./);
     assert.equal([...home.matchAll(/<section\b/g)].length, 3);
     for (const anchor of ['features', 'observability', 'isolation', 'apps']) assert.ok(home.includes(`id="${anchor}"`), `${mode}: homepage anchor ${anchor}`);
@@ -110,13 +121,15 @@ try {
       const end = id === 'observability' ? home.indexOf('<div class="home-chapter home-feature-gallery" id="isolation"', start) : home.indexOf('</section>', start);
       const chapter = home.slice(start, end);
       assert.ok(chapter.includes(`<h2 id="${id}-title">${title}</h2>`));
-      assert.equal([...chapter.matchAll(/class="home-feature-gallery-column"/g)].length, 3);
-      assert.doesNotMatch(chapter, /<p\b|<figcaption>|class="home-chapter-row/);
+      assert.equal([...chapter.matchAll(/class="home-feature-gallery-column"/g)].length, id === 'isolation' ? 4 : 3);
+      if (id === 'observability') assert.doesNotMatch(chapter, /<p\b/);
+      assert.doesNotMatch(chapter, /<figcaption>|class="home-chapter-row/);
+      assert.equal([...chapter.matchAll(/class="feature-doc-link" href="[^"]+docs\//g)].length, id === 'isolation' ? 4 : 3);
       for (const image of images)
         assert.ok(chapter.includes(`href="${base}assets/${id}/${image}" aria-label="Open full-size`), `${mode}: linked ${id} screenshot ${image}`);
     }
     assert.equal([...home.matchAll(/class="home-chapter-row(?: home-row-reverse)?"/g)].length, 0);
-    assert.doesNotMatch(home, /02 — ISOLATION|Space for every app|Kubarr does not install Cilium|a separate config claim does not isolate shared media|Its firewall kill switch is enabled by default/);
+    assert.doesNotMatch(home, /02 — ISOLATION|Space for every app/);
     assert.equal([...home.matchAll(/class="float-icon icon-depth-[012]"/g)].length, 0);
     assert.match(home, /class="hero-icons" aria-hidden="true"/);
     assert.ok(home.indexOf('classList.add("icon-entrance-ready")') < home.indexOf('assets/site.css'), `${mode}: pre-paint entrance flag`);
@@ -132,7 +145,7 @@ try {
     assert.match(apps, /<header class="site-header"><div/);
     assert.doesNotMatch(apps, /class="site-header home-header"|classList.add\("icon-entrance-ready"\)/);
     assert.ok(apps.includes('<title>Apps · Kubarr</title>') && apps.includes('Browse the live Kubarr chart catalog'));
-    assert.ok(apps.includes('Loading apps from GitHub') && apps.includes('href="' + base + '#apps">Apps</a>'));
+    assert.ok(apps.includes('Loading apps from GitHub') && apps.includes('href="' + base + 'apps/" aria-current="page">Apps</a>'));
     assert.doesNotMatch(apps, /class="apps-card"|raw\.githubusercontent\.com/);
     for (const [oldPath, anchor] of Object.entries(redirects)) {
       const html = await readFile(join(out, oldPath, 'index.html'), 'utf8');
@@ -152,7 +165,7 @@ try {
       assert.doesNotMatch(html, /(?:\/)?assets\/apps\//, `${mode}/${page}: local app icon reference`);
       const canonical = `${origin}${base}${page}`;
       assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`) && sitemap.includes(`<loc>${canonical}</loc>`), `${mode}/${page}: canonical/sitemap`);
-      assert.ok(html.includes(`href="${base}#apps">Apps</a>`), `${mode}/${page}: main menu`);
+      assert.ok(new RegExp(`href="${base}apps/"(?: aria-current="page")?>Apps</a>`).test(html), `${mode}/${page}: main menu`);
       assert.ok(html.includes(`data-route="${page}" data-base="${base}"`), `${mode}/${page}: hydration route`);
       assert.ok(html.includes(`<script src="${base}assets/theme.js"></script>`) && html.indexOf('assets/theme.js') < html.indexOf('assets/site.css'), `${mode}/${page}: pre-paint theme`);
       assert.ok(html.includes(`src="${base}assets/app.js"`), `${mode}/${page}: hydration bundle`);

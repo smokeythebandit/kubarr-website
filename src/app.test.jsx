@@ -46,7 +46,7 @@ afterEach(() => {
 const home = () => render(<App route="" base="/kubarr-website/"/>);
 
 describe('one-page homepage', () => {
-  it('places observability and isolation in three image-led columns', () => {
+  it('places homepage features in image-led columns with links to their docs', () => {
     const { container } = home();
     expect([...container.querySelectorAll('main > section')].map(section => section.id)).toEqual(['', 'features', 'apps']);
     expect([...container.querySelectorAll('main h1')].map(node => node.textContent)).toEqual(['Your media stack on Kubernetes']);
@@ -54,9 +54,10 @@ describe('one-page homepage', () => {
     expect(container.querySelector('#apps .home-feature-gallery h2').textContent).toBe('Apps');
     expect([...container.querySelectorAll('#apps .home-feature-gallery-column h3')].map(node => node.textContent)).toEqual(['App catalog', 'App details', 'Operations']);
     expect(container.querySelectorAll('#apps .feature-screenshot')).toHaveLength(3);
+    expect([...container.querySelectorAll('#apps .feature-doc-link')].map(link => link.getAttribute('href'))).toEqual(['/kubarr-website/docs/apps/catalog/', '/kubarr-website/docs/apps/details/', '/kubarr-website/docs/apps/operations/']);
     expect(container.querySelector('#apps p, #apps figcaption, #apps .home-app-list')).toBeNull();
     expect(container.textContent).not.toContain('02 / THE CATALOG');
-    expect([...container.querySelectorAll('#features .home-chapter h3')].map(node => node.textContent)).toEqual(['Unified logging', 'Resource tracking', 'Live network view', 'Containers', 'Storage', 'Networking']);
+    expect([...container.querySelectorAll('#features .home-chapter h3')].map(node => node.textContent)).toEqual(['Unified logging', 'Resource tracking', 'Live network view', 'Containers', 'Cilium networking', 'Storage', 'Networking']);
     expect(container.textContent).not.toMatch(/03 — MODULARITY|Only the apps you need\.|Build your own stack\.|Workloads|APP CHARTS \/ COMPONENTS/);
     expect(container.textContent).not.toContain('01 — OBSERVABILITY');
     expect(container.textContent).not.toContain('Know what’s happening.');
@@ -68,18 +69,23 @@ describe('one-page homepage', () => {
     expect(container.querySelector('#apps').matches('section.home-apps')).toBe(true);
     expect(container.querySelector('#apps .home-feature-gallery').closest('section')).toBe(container.querySelector('#apps'));
     expect(container.querySelector('#observability')).toBeTruthy();
-    const galleries = [['observability', ['Unified logging', 'Resource tracking', 'Live network view']], ['isolation', ['Containers', 'Storage', 'Networking']]];
+    const galleries = [['observability', ['Unified logging', 'Resource tracking', 'Live network view']], ['isolation', ['Containers', 'Cilium networking', 'Storage', 'Networking']]];
     for (const [id, titles] of galleries) {
       const chapter = container.querySelector(`#${id}`);
       expect(chapter.getAttribute('aria-labelledby')).toBe(`${id}-title`);
       const columns = [...chapter.querySelectorAll('.home-feature-gallery-column')];
-      expect(columns).toHaveLength(3);
+      expect(columns).toHaveLength(titles.length);
       expect(columns.map(column => column.querySelector('h3').textContent)).toEqual(titles);
-      expect(chapter.querySelectorAll('.home-chapter-row, p, figcaption')).toHaveLength(0);
+      expect(chapter.querySelectorAll('.home-chapter-row, figcaption')).toHaveLength(0);
       expect(chapter.querySelectorAll('.feature-screenshot')).toHaveLength(3);
-      expect(columns.every(column => column.querySelector('a').getAttribute('href') === column.querySelector('img').getAttribute('src'))).toBe(true);
+      for (const column of columns) {
+        const learnMore = column.querySelector('.feature-doc-link');
+        expect(learnMore.textContent.trim()).toBe('Learn more →');
+        expect(learnMore.getAttribute('href')).toMatch(/^\/kubarr-website\/docs\//);
+        if (column.querySelector('img')) expect(column.querySelector('.feature-screenshot a').getAttribute('href')).toBe(column.querySelector('img').getAttribute('src'));
+      }
     }
-    expect(container.querySelector('#isolation').textContent).not.toMatch(/02 — ISOLATION|Space for every app|Cilium|Keep app workloads|For chart-specific storage/);
+    expect(container.querySelector('#isolation').textContent).not.toMatch(/02 — ISOLATION|Space for every app|Keep app workloads|For chart-specific storage/);
     expect([...container.querySelectorAll('#features .home-chapter')].map(node => node.id)).toEqual(['observability', 'isolation']);
     expect(container.querySelectorAll('.home-chapter-row')).toHaveLength(0);
     expect([...container.querySelectorAll('#features .home-chapter img')].map(node => node.getAttribute('src'))).toEqual(['logs.jpg', 'resources.jpg', 'networking.jpg'].map(name => `/kubarr-website/assets/observability/${name}`).concat(['containers.jpg', 'storage.jpg', 'vpn.jpg'].map(name => `/kubarr-website/assets/isolation/${name}`)));
@@ -110,7 +116,7 @@ describe('one-page homepage', () => {
       expect(img.closest('a').getAttribute('href')).toBe(img.getAttribute('src'));
     }
     expect(css).toContain('.feature-screenshot img{display:block;width:100%;height:auto}');
-    expect(routes).toEqual(['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/']);
+    expect(routes).toEqual(['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/', 'docs/using-kubarr/', 'docs/observability/unified-logging/', 'docs/observability/resource-tracking/', 'docs/observability/live-network-view/', 'docs/isolation/containers/', 'docs/isolation/cilium-networking/', 'docs/isolation/storage/', 'docs/isolation/vpn/', 'docs/apps/catalog/', 'docs/apps/details/', 'docs/apps/operations/']);
     expect(screen.getByRole('link', { name: /Browse supported apps/ }).getAttribute('href')).toBe('/kubarr-website/apps/');
     expect(container.querySelector('.home-app-list')).toBeNull(); // Catalog data is never baked into SSR.
   });
@@ -233,8 +239,8 @@ describe('homepage app icon field', () => {
     expect(screen.getByRole('heading', { name: 'Your media stack on Kubernetes' })).toBeTruthy();
     expect(container.querySelector('.hero-line-first').textContent).toBe('Your media stack ');
     expect(container.querySelector('.hero-line-second .kubernetes-logo').getAttribute('src')).toBe('/kubarr-website/assets/kubernetes-icon-color.svg');
-    expect(screen.getByRole('code', { name: /Install command/ }).textContent).toBe(command);
-    expect(screen.getByRole('button', { name: 'Copy install command' })).toBeTruthy();
+    expect(container.querySelector('[data-install-command]').textContent).toBe(command);
+    expect(screen.getByRole('button', { name: 'Click to copy install command' })).toBeTruthy();
   });
 
   it('gives each catalog logo stable desktop and mobile anchors without event-driven routes', () => {
@@ -320,7 +326,8 @@ describe('shared main navigation', () => {
   });
   const expected = [
     ['Home', '/kubarr-website/'],
-    ['Apps', '/kubarr-website/#apps'],
+    ['Documentation', '/kubarr-website/docs/'],
+    ['Apps', '/kubarr-website/apps/'],
     ['GitHub ↗', 'https://github.com/smokeythebandit/Kubarr'],
   ];
 
@@ -331,9 +338,9 @@ describe('shared main navigation', () => {
       const nav = screen.getByRole('navigation', { name: 'Main navigation' });
       const links = Array.from(nav.querySelectorAll('a'));
       expect(links.map(link => [link.textContent, link.getAttribute('href')])).toEqual(expected);
-      const active = route === '' ? 'Home' : undefined;
+      const active = route === '' ? 'Home' : route === 'apps/' ? 'Apps' : route.startsWith('docs/') ? 'Documentation' : undefined;
       expect(links.filter(link => link.hasAttribute('aria-current')).map(link => [link.textContent, link.getAttribute('aria-current')])).toEqual(active ? [[active, 'page']] : []);
-      expect(nav.querySelector('.nav-github')).toBe(links[2]);
+      expect(nav.querySelector('.nav-github')).toBe(links[3]);
       expect(screen.queryByLabelText('Theme')).toBeNull();
     });
 
@@ -362,9 +369,9 @@ describe('shared main navigation', () => {
 
 describe('menu keyboard handling', () => {
   it('leaves focus alone on Escape while closed', () => {
-    home();
+    const { container } = home();
     const menu = screen.getByRole('button', { name: 'Menu' });
-    const code = screen.getByRole('code', { name: /Install command/ });
+    const code = container.querySelector('[data-copy-command]');
     code.focus();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(document.activeElement).toBe(code);
@@ -372,14 +379,39 @@ describe('menu keyboard handling', () => {
   });
 
   it('closes an open menu and returns focus to its button', () => {
-    home();
+    const { container } = home();
     const menu = screen.getByRole('button', { name: 'Menu' });
     fireEvent.click(menu);
     expect(menu.getAttribute('aria-expanded')).toBe('true');
-    screen.getByRole('code', { name: /Install command/ }).focus();
+    container.querySelector('[data-copy-command]').focus();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(menu.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(menu);
+  });
+});
+
+describe('documentation diagrams', () => {
+  it('puts a labeled diagram and a how-it-works explanation on every feature page', () => {
+    const features = [
+      ['docs/observability/unified-logging/', 'Unified logging'],
+      ['docs/observability/resource-tracking/', 'Resource tracking'],
+      ['docs/observability/live-network-view/', 'Live network view'],
+      ['docs/isolation/containers/', 'Containers'],
+      ['docs/isolation/cilium-networking/', 'Cilium networking'],
+      ['docs/isolation/storage/', 'Storage'],
+      ['docs/isolation/vpn/', 'VPN networking'],
+      ['docs/apps/catalog/', 'App catalog'],
+      ['docs/apps/details/', 'App details'],
+      ['docs/apps/operations/', 'Operations'],
+    ];
+    const view = render(<App route={features[0][0]} base="/kubarr-website/"/>);
+    for (const [route, title] of features) {
+      view.rerender(<App route={route} base="/kubarr-website/"/>);
+      expect(screen.getByRole('img', { name: `${title} flow diagram` })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'How it works' })).toBeTruthy();
+      expect(view.container.querySelectorAll('.docs-diagram-node').length).toBeGreaterThanOrEqual(3);
+      expect(view.container.querySelector('.prose h2 + .docs-diagram + p').textContent.length).toBeGreaterThan(100);
+    }
   });
 });
 
@@ -390,11 +422,11 @@ describe('install command copy', () => {
     const fallback = vi.fn().mockReturnValue(true);
     document.execCommand = fallback;
     home();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy install command' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Click to copy install command' }));
     await waitFor(() => expect(document.querySelector('.copy-status').textContent).toBe('Command copied to clipboard.'));
     expect(writeText).toHaveBeenCalledWith(command);
     expect(fallback).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Install command copied' }).textContent).toBe('Copied');
+    expect(screen.getByRole('button', { name: 'Install command copied' }).querySelector('.copy-label').textContent).toBe('Copied!');
   });
 
   it('selects the visible command when clipboard and fallback both fail', async () => {
@@ -402,14 +434,14 @@ describe('install command copy', () => {
     const fallback = vi.fn().mockReturnValue(false);
     document.execCommand = fallback;
     home();
-    const button = screen.getByRole('button', { name: 'Copy install command' });
+    const button = screen.getByRole('button', { name: 'Click to copy install command' });
     fireEvent.click(button);
     await waitFor(() => expect(document.querySelector('.copy-status').textContent).toBe('Copy failed. Select the command to copy it manually.'));
     expect(fallback).toHaveBeenCalledWith('copy');
     expect(window.getSelection().toString()).toBe(command);
-    expect(window.getSelection().getRangeAt(0).commonAncestorContainer).toBe(screen.getByRole('code', { name: /Install command/ }));
+    expect(window.getSelection().getRangeAt(0).commonAncestorContainer).toBe(document.querySelector('[data-install-command]'));
     expect(document.activeElement).toBe(button);
-    expect(button.textContent).toBe('Copy');
+    expect(button.querySelector('.copy-label').textContent).toBe('Click to copy');
     expect(document.querySelector('textarea')).toBeNull();
   });
 });

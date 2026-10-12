@@ -1,6 +1,6 @@
 # Kubarr website
 
-React one-page landing experience, app catalog and starter documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). The main menu jumps to the Features and Apps sections of the homepage; Observability and Isolation are anchored chapters there. Five static HTML pages are prerendered, plus small redirects from the four former feature URLs to their homepage sections (the former Modularity URL redirects to Apps). Node.js 20.10+ and npm are required. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
+React one-page landing experience, app catalog and documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). The main menu jumps to the Features and Apps sections of the homepage; Observability and Isolation are anchored chapters there. Sixteen static HTML pages are prerendered, including separate docs for each homepage feature grouped under Observability, Isolation and Apps, plus small redirects from the four former feature URLs to their homepage sections (the former Modularity URL redirects to Apps). Node.js 20.10+ and npm are required. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
 
 ## Work locally
 

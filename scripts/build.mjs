@@ -13,6 +13,7 @@ const destination = process.env.OUT_DIR ?? 'dist';
 await rm(destination, { recursive: true, force: true });
 await mkdir(join(destination, 'assets'), { recursive: true });
 await cp('src/assets', join(destination, 'assets'), { recursive: true, filter: path => !path.replaceAll('\\', '/').endsWith('/assets/apps') });
+await cp('src/install.sh', join(destination, 'install.sh'));
 
 await build({ entryPoints: ['src/client.jsx'], bundle: true, minify: true, format: 'esm', outfile: join(destination, 'assets/app.js'), jsx: 'automatic' });
 // Keep the temporary SSR bundle beside this package so external React resolves
@@ -30,6 +31,17 @@ try {
     'docs/': ['Documentation · Kubarr', 'Start here for Kubarr installation and architecture documentation.'],
     'docs/getting-started/': ['Getting started · Kubarr', 'Prepare a Kubernetes cluster and bootstrap Kubarr with its CLI installer.'],
     'docs/how-it-works/': ['How it works · Kubarr', "Understand Kubarr's gateway, frontend, API, worker, Kubernetes workloads and storage."],
+    'docs/using-kubarr/': ['Using Kubarr · Kubarr', 'Learn how to use the app catalog, operations, logs, resource tracking, networking, storage and VPN features.'],
+    'docs/observability/unified-logging/': ['Unified logging · Kubarr', 'Search and filter application logs in Kubarr and use them during troubleshooting.'],
+    'docs/observability/resource-tracking/': ['Resource tracking · Kubarr', 'Review cluster and app resource telemetry in Kubarr.'],
+    'docs/observability/live-network-view/': ['Live network view · Kubarr', 'Explore observed network activity and connections in Kubarr.'],
+    'docs/isolation/containers/': ['Containers · Kubarr', 'Inspect Kubernetes app pods, container readiness and restarts.'],
+    'docs/isolation/cilium-networking/': ['Cilium networking · Kubarr', 'Understand NetworkPolicy and CNI enforcement for Kubarr apps.'],
+    'docs/isolation/storage/': ['Storage · Kubarr', 'Plan shared media and application configuration storage.'],
+    'docs/isolation/vpn/': ['VPN networking · Kubarr', 'Configure VPN providers for supported Kubarr apps.'],
+    'docs/apps/catalog/': ['App catalog · Kubarr', 'Browse chart-backed apps and categories in Kubarr.'],
+    'docs/apps/details/': ['App details · Kubarr', 'Review app information and controls before managing a chart-backed app.'],
+    'docs/apps/operations/': ['Operations · Kubarr', 'Review queued, completed and failed app operations in Kubarr.'],
   };
   const escape = text => text.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
   for (const route of routes) {
