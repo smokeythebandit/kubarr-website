@@ -41,7 +41,7 @@ The website does not contact an authenticated Kubarr installation or expose an A
 
 ### Publish CLI installer updates
 
-`https://kubarr.com/install.sh` downloads the Linux binary and checksum from the [standalone CLI's latest release](https://github.com/smokeythebandit/kubarr-cli/releases/latest), then starts `kubarr bootstrap --web`. The script checks for web-installer support before replacing `/usr/local/bin/kubarr`.
+`curl -fsSL https://kubarr.com/install.sh | bash` downloads the Linux binary and checksum from the [standalone CLI's latest release](https://github.com/smokeythebandit/kubarr-cli/releases/latest), installs `~/.local/bin/kubarr`, and starts the web wizard as the current user. The script checks for web-installer support before replacing the user-local binary. It does not require elevated privileges, change shell profiles, or replace a system-wide installation. If `kubarr` is absent from PATH or resolves to an older system binary, it prints `export PATH="$HOME/.local/bin:$PATH"` for future use. The initial wizard launch always uses the newly installed binary directly.
 
 The `kubarr-cli` repository owns CLI versions, tests, builds, and releases through its **CLI CI/CD** workflow. It builds Linux x86_64 and ARM64 binaries after the Rust and browser-wizard tests pass. Successful `main` builds publish a `cli-<commit>` snapshot as the latest release; `v*` tags publish the matching numbered CLI release and must match its package version. Version-tag prereleases do not replace the latest download. Releases are created as drafts, populated with assets, then published to support GitHub's release immutability.
 

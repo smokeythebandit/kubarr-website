@@ -16,7 +16,7 @@ const installerSyntax = spawnSync('bash', ['-n', 'src/install.sh'], { encoding: 
 assert.equal(installerSyntax.status, 0, `install.sh syntax: ${installerSyntax.stderr}`);
 assert.match(installerSource, /https:\/\/github\.com\/smokeythebandit\/kubarr-cli\/releases\/latest\/download/);
 assert.match(installerSource, /sha256sum --check/);
-assert.match(installerSource, /\/usr\/local\/bin\/kubarr bootstrap --web/);
+assert.match(installerSource, /exec "\$install_path" bootstrap --web/);
 
 const pages = ['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/', 'docs/using-kubarr/', 'docs/observability/unified-logging/', 'docs/observability/resource-tracking/', 'docs/observability/live-network-view/', 'docs/isolation/containers/', 'docs/isolation/cilium-networking/', 'docs/isolation/storage/', 'docs/isolation/vpn/', 'docs/apps/catalog/', 'docs/apps/details/', 'docs/apps/operations/'];
 const redirects = { 'features/': 'features', 'features/observability/': 'observability', 'features/isolation/': 'isolation', 'features/modularity/': 'apps' };
@@ -87,7 +87,7 @@ try {
     const home = await readFile(join(out, 'index.html'), 'utf8');
     assert.match(home, /<h1 id="hero-title"><span class="hero-line-first">Your media stack <\/span><span class="hero-line-second">on <span class="kubernetes-lockup"><span class="kubernetes-word">Kubernetes<\/span><img class="kubernetes-logo"/);
     assert.doesNotMatch(home, /Your media stack,/);
-    assert.match(home, /curl -fsSL https:\/\/kubarr\.com\/install\.sh \| sudo bash/);
+    assert.match(home, /curl -fsSL https:\/\/kubarr\.com\/install\.sh \| bash/);
     assert.match(home, /aria-label="Click to copy install command"/);
     assert.doesNotMatch(home, /03 \/ GET STARTED|Make it yours\.|Bring your cluster\. Choose your apps\./);
     assert.equal([...home.matchAll(/<section\b/g)].length, 3);

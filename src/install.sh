@@ -20,7 +20,8 @@ die() {
 }
 
 [[ "$(uname -s)" == Linux ]] || die "Linux is required."
-[[ "$(id -u)" -eq 0 ]] || die "Run this installer with sudo, as shown in the install command."
+[[ -n "${HOME:-}" && "$HOME" == /* ]] || die "HOME must be set to an absolute path."
+install_path="$HOME/.local/bin/kubarr"
 
 case "$(uname -m)" in
   x86_64|amd64) architecture=x86_64 ;;
@@ -52,6 +53,14 @@ tar -xzf "$work_dir/$asset" --no-same-owner -C "$work_dir" kubarr
 [[ -s "$work_dir/kubarr" ]] || die "The CLI archive does not contain the kubarr binary."
 bootstrap_help="$("$work_dir/kubarr" bootstrap --help)" || die "The downloaded CLI could not run."
 [[ "$bootstrap_help" == *"--web-port"* ]] || die "The published CLI is outdated and does not support the web installer. Updated CLI binaries must be published before retrying."
-install -D -m 0755 "$work_dir/kubarr" /usr/local/bin/kubarr
-status "$green" '✓' 'CLI installed' '/usr/local/bin/kubarr'
-/usr/local/bin/kubarr bootstrap --web
+install -D -m 0755 "$work_dir/kubarr" "$install_path"
+status "$green" '✓' 'CLI installed' "$install_path"
+if [[ "$(command -v kubarr || true)" != "$install_path" ]]; then
+  printf '\n  %s\n' 'To use kubarr from your shell, add this to your shell profile:'
+  printf '  %s\n' 'export PATH="$HOME/.local/bin:$PATH"'
+fi
+
+# Launch the installed binary as the current user, retaining their kubeconfig.
+cleanup
+trap - EXIT
+exec "$install_path" bootstrap --web
