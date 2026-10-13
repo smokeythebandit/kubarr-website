@@ -37,6 +37,20 @@ The website does not contact an authenticated Kubarr installation or expose an A
 3. The repository's Pages custom domain is `kubarr.com`. Keep that binding in GitHub Pages settings; this Actions-based publishing flow does not require a `CNAME` file in the artifact. Check [GitHub's current custom-domain DNS documentation](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) before changing DNS. Allow time for certificate provisioning, then enable **Enforce HTTPS** in Pages settings once available.
 4. The workflow sets `SITE_ORIGIN: https://kubarr.com` on the published build so canonical tags, sitemap and all local links/assets use the domain root (`/assets/...`, not `/kubarr-website/assets/...`). Redeploy after changing this workflow. Local preview builds still default to `https://smokeythebandit.github.io/kubarr-website/`; they do not represent the custom-domain artifact.
 
+### Publish CLI installer updates
+
+`https://kubarr.com/install.sh` downloads the Linux binary and checksum from [Kubarr's `kubarr-cli-latest` release](https://github.com/smokeythebandit/Kubarr/releases/tag/kubarr-cli-latest), then starts `kubarr bootstrap --web`. The script checks for web-installer support before replacing `/usr/local/bin/kubarr`.
+
+The Kubarr repository owns CLI builds and releases through its normal **CI/CD** workflow. Its `build.yml` builds both Linux architectures from the same commit as the application, and `publish.yml` uploads the binaries after the normal CI checks pass. Successful `main` builds update the rolling download; `v*` tags publish assets to their matching Kubarr release.
+
+To publish a CLI change, push it to Kubarr's `main` and wait for its CI/CD publish job. To rerun the current main build manually:
+
+```sh
+gh workflow run ci.yml --repo smokeythebandit/Kubarr --ref main
+```
+
+The website only hosts the download script; changes to `src/install.sh` require a Pages deployment. For the initial migration from website-owned releases, publish Kubarr's rolling release successfully before deploying the new script URL. If the terminal shows the old ASCII bootstrap banner and starts cluster checks instead of printing a wizard URL, check that Kubarr's latest CI/CD run published the updated binaries.
+
 ## Layout
 
 - `src/app.jsx` — shared React layout, page content and interactive controls. `src/client.jsx` hydrates each prerendered page. `src/assets/` retains the CSS, genuine SVG artwork, and synchronous pre-paint theme initializer.

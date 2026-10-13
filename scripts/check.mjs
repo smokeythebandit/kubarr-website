@@ -11,16 +11,12 @@ import YAML from 'yaml';
 const workflow = YAML.parse(await readFile('.github/workflows/pages.yml', 'utf8'));
 const buildStep = workflow.jobs.deploy.steps.find(step => step.run === 'npm run build');
 assert.equal(buildStep?.env?.SITE_ORIGIN, 'https://kubarr.com', 'Pages build must target the custom domain');
-const cliWorkflow = YAML.parse(await readFile('.github/workflows/cli-release.yml', 'utf8'));
-assert.equal(cliWorkflow.jobs.build.strategy.matrix.include.length, 2, 'prebuilt CLI must target two Linux architectures');
-assert.deepEqual(cliWorkflow.jobs.build.strategy.matrix.include.map(target => target.arch), ['x86_64', 'aarch64']);
-assert.equal(cliWorkflow.jobs.publish.permissions.contents, 'write', 'CLI release publishing needs contents write permission');
 const installerSource = await readFile('src/install.sh', 'utf8');
 const installerSyntax = spawnSync('bash', ['-n', 'src/install.sh'], { encoding: 'utf8' });
 assert.equal(installerSyntax.status, 0, `install.sh syntax: ${installerSyntax.stderr}`);
-assert.match(installerSource, /releases\/download\/kubarr-cli-latest/);
+assert.match(installerSource, /https:\/\/github\.com\/smokeythebandit\/Kubarr\/releases\/download\/kubarr-cli-latest/);
 assert.match(installerSource, /sha256sum --check/);
-assert.match(installerSource, /\/usr\/local\/bin\/kubarr bootstrap/);
+assert.match(installerSource, /\/usr\/local\/bin\/kubarr bootstrap --web/);
 
 const pages = ['', 'apps/', 'docs/', 'docs/getting-started/', 'docs/how-it-works/', 'docs/using-kubarr/', 'docs/observability/unified-logging/', 'docs/observability/resource-tracking/', 'docs/observability/live-network-view/', 'docs/isolation/containers/', 'docs/isolation/cilium-networking/', 'docs/isolation/storage/', 'docs/isolation/vpn/', 'docs/apps/catalog/', 'docs/apps/details/', 'docs/apps/operations/'];
 const redirects = { 'features/': 'features', 'features/observability/': 'observability', 'features/isolation/': 'isolation', 'features/modularity/': 'apps' };

@@ -24,7 +24,7 @@ cleanup() { rm -rf "$work_dir"; }
 trap cleanup EXIT
 
 asset="kubarr-linux-${architecture}.tar.gz"
-release_url="https://github.com/smokeythebandit/kubarr-website/releases/download/kubarr-cli-latest"
+release_url="https://github.com/smokeythebandit/Kubarr/releases/download/kubarr-cli-latest"
 curl --fail --location --silent --show-error --retry 3 --output "$work_dir/$asset" "$release_url/$asset"
 curl --fail --location --silent --show-error --retry 3 --output "$work_dir/$asset.sha256" "$release_url/$asset.sha256"
 
@@ -34,6 +34,8 @@ printf '%s  %s\n' "$expected_hash" "$work_dir/$asset" | sha256sum --check --stat
 
 tar -xzf "$work_dir/$asset" --no-same-owner -C "$work_dir" kubarr
 [[ -s "$work_dir/kubarr" ]] || die "The CLI archive does not contain the kubarr binary."
+bootstrap_help="$("$work_dir/kubarr" bootstrap --help)" || die "The downloaded CLI could not run."
+[[ "$bootstrap_help" == *"--web-port"* ]] || die "The published CLI is outdated and does not support the web installer. Updated CLI binaries must be published before retrying."
 install -D -m 0755 "$work_dir/kubarr" /usr/local/bin/kubarr
-printf '\nKubarr CLI installed at /usr/local/bin/kubarr. Starting the bootstrap wizard...\n\n'
-/usr/local/bin/kubarr bootstrap
+printf '\nKubarr CLI installed at /usr/local/bin/kubarr. Starting the web bootstrap wizard...\n\n'
+/usr/local/bin/kubarr bootstrap --web
