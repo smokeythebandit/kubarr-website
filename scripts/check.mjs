@@ -14,7 +14,7 @@ assert.equal(buildStep?.env?.SITE_ORIGIN, 'https://kubarr.com', 'Pages build mus
 const installerSource = await readFile('src/install.sh', 'utf8');
 const installerSyntax = spawnSync('bash', ['-n', 'src/install.sh'], { encoding: 'utf8' });
 assert.equal(installerSyntax.status, 0, `install.sh syntax: ${installerSyntax.stderr}`);
-assert.match(installerSource, /https:\/\/github\.com\/smokeythebandit\/Kubarr\/releases\/latest\/download/);
+assert.match(installerSource, /https:\/\/github\.com\/smokeythebandit\/kubarr-cli\/releases\/latest\/download/);
 assert.match(installerSource, /sha256sum --check/);
 assert.match(installerSource, /\/usr\/local\/bin\/kubarr bootstrap --web/);
 

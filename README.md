@@ -1,11 +1,11 @@
 # Kubarr website
 
-React one-page landing experience, app catalog and documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). The main menu jumps to the Features and Apps sections of the homepage; Observability and Isolation are anchored chapters there. Sixteen static HTML pages are prerendered, including separate docs for each homepage feature grouped under Observability, Isolation and Apps, plus small redirects from the four former feature URLs to their homepage sections (the former Modularity URL redirects to Apps). Node.js 20.10+ and npm are required. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
+React one-page landing experience, app catalog and documentation for [Kubarr](https://github.com/smokeythebandit/Kubarr). The main menu jumps to the Features and Apps sections of the homepage; Observability and Isolation are anchored chapters there. Sixteen static HTML pages are prerendered, including separate docs for each homepage feature grouped under Observability, Isolation and Apps, plus small redirects from the four former feature URLs to their homepage sections (the former Modularity URL redirects to Apps). Node.js 26 and npm are required; `.nvmrc` matches the CI version. Each directory has its own `index.html` for direct navigation on GitHub Pages; no client-side router or server rewrites are needed.
 
 ## Work locally
 
 ```sh
-node --version # 20.10 or newer
+node --version # 26.x
 npm ci
 npm run build
 npm run check
@@ -21,6 +21,8 @@ npm run dev
 ```
 
 Open `http://localhost:8000/` for that build. The build writes only to `dist/`. `npm run check` validates prerendered pages, canonical URLs, local links/assets, theme initialization and both preview and production builds (in temporary directories). The local server reads `dist/` for each request; rebuild after editing source. Restart the server if you change `SITE_ORIGIN`.
+
+`npm test` uses jsdom's browser storage. The Vitest configuration disables Node's experimental WebStorage globals in test workers so Node 26's server-side `localStorage` does not shadow jsdom's implementation.
 
 ## Chart catalog
 
@@ -39,17 +41,17 @@ The website does not contact an authenticated Kubarr installation or expose an A
 
 ### Publish CLI installer updates
 
-`https://kubarr.com/install.sh` downloads the Linux binary and checksum from [Kubarr's latest release](https://github.com/smokeythebandit/Kubarr/releases/latest), then starts `kubarr bootstrap --web`. The script checks for web-installer support before replacing `/usr/local/bin/kubarr`.
+`https://kubarr.com/install.sh` downloads the Linux binary and checksum from the [standalone CLI's latest release](https://github.com/smokeythebandit/kubarr-cli/releases/latest), then starts `kubarr bootstrap --web`. The script checks for web-installer support before replacing `/usr/local/bin/kubarr`.
 
-The Kubarr repository owns CLI builds and releases through its normal **CI/CD** workflow. Its `build.yml` builds both Linux architectures from the same commit as the application, and `publish.yml` uploads the binaries after the normal CI checks pass. Successful `main` builds publish a `cli-<commit>` snapshot as the latest release; `v*` tags publish assets to their matching Kubarr release. Version-tag prereleases do not replace the latest download. Releases are created as drafts, populated with assets, then published to support GitHub's release immutability.
+The `kubarr-cli` repository owns CLI versions, tests, builds, and releases through its **CLI CI/CD** workflow. It builds Linux x86_64 and ARM64 binaries after the Rust and browser-wizard tests pass. Successful `main` builds publish a `cli-<commit>` snapshot as the latest release; `v*` tags publish the matching numbered CLI release and must match its package version. Version-tag prereleases do not replace the latest download. Releases are created as drafts, populated with assets, then published to support GitHub's release immutability.
 
-To publish a CLI change, push it to Kubarr's `main` and wait for its CI/CD publish job. To rerun the current main build manually:
+To publish a CLI change, push it to `kubarr-cli`'s `main` and wait for its publish job. To rerun the current main build manually:
 
 ```sh
-gh workflow run ci.yml --repo smokeythebandit/Kubarr --ref main
+gh workflow run ci.yml --repo smokeythebandit/kubarr-cli --ref main
 ```
 
-The website only hosts the download script; changes to `src/install.sh` require a Pages deployment. For the initial migration from website-owned releases, publish Kubarr's CLI release successfully before deploying the new script URL. If the terminal shows the old ASCII bootstrap banner and starts cluster checks instead of printing a wizard URL, check that Kubarr's latest CI/CD run published the updated binaries.
+The website only hosts the download script; changes to `src/install.sh` require a Pages deployment. Publish the standalone CLI's release successfully before deploying a new download URL. If the terminal shows the old ASCII bootstrap banner and starts cluster checks instead of printing a wizard URL, check that the standalone CLI's latest CI/CD run published the updated binaries.
 
 ## Layout
 

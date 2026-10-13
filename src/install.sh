@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+cyan='' green='' dim='' reset=''
+if [[ -t 1 && -z "${NO_COLOR+x}" && "${TERM:-}" != dumb ]]; then
+  cyan=$'\033[36m' green=$'\033[32m' dim=$'\033[2m' reset=$'\033[0m'
+fi
+
+status() {
+  printf '  %s%s%s  %s' "$1" "$2" "$reset" "$3"
+  if [[ -n "${4:-}" ]]; then
+    printf ' %s· %s%s' "$dim" "$4" "$reset"
+  fi
+  printf '\n'
+}
+
 die() {
   printf 'Kubarr installer: %s\n' "$*" >&2
   exit 1
@@ -24,18 +37,21 @@ cleanup() { rm -rf "$work_dir"; }
 trap cleanup EXIT
 
 asset="kubarr-linux-${architecture}.tar.gz"
-release_url="https://github.com/smokeythebandit/Kubarr/releases/latest/download"
+release_url="https://github.com/smokeythebandit/kubarr-cli/releases/latest/download"
+printf '\n'
+status "$cyan" '↓' 'Downloading Kubarr CLI' "linux/$architecture"
 curl --fail --location --silent --show-error --retry 3 --output "$work_dir/$asset" "$release_url/$asset"
 curl --fail --location --silent --show-error --retry 3 --output "$work_dir/$asset.sha256" "$release_url/$asset.sha256"
 
 expected_hash="$(awk 'NR == 1 { print $1 }' "$work_dir/$asset.sha256")"
 [[ "$expected_hash" =~ ^[[:xdigit:]]{64}$ ]] || die "The published CLI checksum is malformed."
 printf '%s  %s\n' "$expected_hash" "$work_dir/$asset" | sha256sum --check --status || die "The downloaded CLI failed its SHA-256 check."
+status "$green" '✓' 'Download verified' 'SHA-256'
 
 tar -xzf "$work_dir/$asset" --no-same-owner -C "$work_dir" kubarr
 [[ -s "$work_dir/kubarr" ]] || die "The CLI archive does not contain the kubarr binary."
 bootstrap_help="$("$work_dir/kubarr" bootstrap --help)" || die "The downloaded CLI could not run."
 [[ "$bootstrap_help" == *"--web-port"* ]] || die "The published CLI is outdated and does not support the web installer. Updated CLI binaries must be published before retrying."
 install -D -m 0755 "$work_dir/kubarr" /usr/local/bin/kubarr
-printf '\nKubarr CLI installed at /usr/local/bin/kubarr. Starting the web bootstrap wizard...\n\n'
+status "$green" '✓' 'CLI installed' '/usr/local/bin/kubarr'
 /usr/local/bin/kubarr bootstrap --web
