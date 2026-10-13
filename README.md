@@ -39,9 +39,9 @@ The website does not contact an authenticated Kubarr installation or expose an A
 
 ### Publish CLI installer updates
 
-`https://kubarr.com/install.sh` downloads the Linux binary and checksum from [Kubarr's `kubarr-cli-latest` release](https://github.com/smokeythebandit/Kubarr/releases/tag/kubarr-cli-latest), then starts `kubarr bootstrap --web`. The script checks for web-installer support before replacing `/usr/local/bin/kubarr`.
+`https://kubarr.com/install.sh` downloads the Linux binary and checksum from [Kubarr's latest release](https://github.com/smokeythebandit/Kubarr/releases/latest), then starts `kubarr bootstrap --web`. The script checks for web-installer support before replacing `/usr/local/bin/kubarr`.
 
-The Kubarr repository owns CLI builds and releases through its normal **CI/CD** workflow. Its `build.yml` builds both Linux architectures from the same commit as the application, and `publish.yml` uploads the binaries after the normal CI checks pass. Successful `main` builds update the rolling download; `v*` tags publish assets to their matching Kubarr release.
+The Kubarr repository owns CLI builds and releases through its normal **CI/CD** workflow. Its `build.yml` builds both Linux architectures from the same commit as the application, and `publish.yml` uploads the binaries after the normal CI checks pass. Successful `main` builds publish a `cli-<commit>` snapshot as the latest release; `v*` tags publish assets to their matching Kubarr release. Version-tag prereleases do not replace the latest download. Releases are created as drafts, populated with assets, then published to support GitHub's release immutability.
 
 To publish a CLI change, push it to Kubarr's `main` and wait for its CI/CD publish job. To rerun the current main build manually:
 
@@ -49,7 +49,7 @@ To publish a CLI change, push it to Kubarr's `main` and wait for its CI/CD publi
 gh workflow run ci.yml --repo smokeythebandit/Kubarr --ref main
 ```
 
-The website only hosts the download script; changes to `src/install.sh` require a Pages deployment. For the initial migration from website-owned releases, publish Kubarr's rolling release successfully before deploying the new script URL. If the terminal shows the old ASCII bootstrap banner and starts cluster checks instead of printing a wizard URL, check that Kubarr's latest CI/CD run published the updated binaries.
+The website only hosts the download script; changes to `src/install.sh` require a Pages deployment. For the initial migration from website-owned releases, publish Kubarr's CLI release successfully before deploying the new script URL. If the terminal shows the old ASCII bootstrap banner and starts cluster checks instead of printing a wizard URL, check that Kubarr's latest CI/CD run published the updated binaries.
 
 ## Layout
 

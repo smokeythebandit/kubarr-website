@@ -24,7 +24,7 @@ cleanup() { rm -rf "$work_dir"; }
 trap cleanup EXIT
 
 asset="kubarr-linux-${architecture}.tar.gz"
-release_url="https://github.com/smokeythebandit/Kubarr/releases/download/kubarr-cli-latest"
+release_url="https://github.com/smokeythebandit/Kubarr/releases/latest/download"
 curl --fail --location --silent --show-error --retry 3 --output "$work_dir/$asset" "$release_url/$asset"
 curl --fail --location --silent --show-error --retry 3 --output "$work_dir/$asset.sha256" "$release_url/$asset.sha256"
 
