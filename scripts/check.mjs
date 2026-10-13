@@ -117,10 +117,10 @@ try {
       const end = id === 'observability' ? home.indexOf('<div class="home-chapter home-feature-gallery" id="isolation"', start) : home.indexOf('</section>', start);
       const chapter = home.slice(start, end);
       assert.ok(chapter.includes(`<h2 id="${id}-title">${title}</h2>`));
-      assert.equal([...chapter.matchAll(/class="home-feature-gallery-column"/g)].length, id === 'isolation' ? 4 : 3);
-      if (id === 'observability') assert.doesNotMatch(chapter, /<p\b/);
+      assert.equal([...chapter.matchAll(/class="home-feature-gallery-column"/g)].length, 3);
+      if (id === 'observability') assert.ok(chapter.includes('Indexed and centralized logging for all your applications.'));
       assert.doesNotMatch(chapter, /<figcaption>|class="home-chapter-row/);
-      assert.equal([...chapter.matchAll(/class="feature-doc-link" href="[^"]+docs\//g)].length, id === 'isolation' ? 4 : 3);
+      assert.equal([...chapter.matchAll(/class="feature-doc-link" href="[^"]+docs\//g)].length, 3);
       for (const image of images)
         assert.ok(chapter.includes(`href="${base}assets/${id}/${image}" aria-label="Open full-size`), `${mode}: linked ${id} screenshot ${image}`);
     }

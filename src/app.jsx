@@ -301,10 +301,10 @@ function FeatureGallery({ feature, base, images, onOpen }) {
   return <div className="home-chapter home-feature-gallery" id={feature.id} aria-labelledby={`${feature.id}-title`}>
     <h2 id={`${feature.id}-title`}>{feature.title}</h2>
     <div className="home-feature-gallery-cards">
-      {feature.points.map(([title, description]) => {
+      {feature.points.map(([title, description, showDescription]) => {
         const docTitle = title === 'Networking' ? 'VPN networking' : title;
         const doc = featureDocs.find(page => page.title === docTitle);
-        return <article className="home-feature-gallery-column" key={title}><h3>{title}</h3>{images[title] ? <FeatureImage title={title} base={base} images={images} folder={feature.folder ?? feature.id} hideCaption onOpen={onOpen}/> : <p>{description}</p>}{doc && <a className="feature-doc-link" href={`${base}${doc.route}`}>Learn more <span aria-hidden="true">→</span></a>}</article>;
+        return <article className="home-feature-gallery-column" key={title}><h3>{title}</h3>{showDescription && <p className="feature-summary">{description}</p>}{images[title] ? <FeatureImage title={title} base={base} images={images} folder={feature.folder ?? feature.id} hideCaption onOpen={onOpen}/> : <p>{description}</p>}{doc && <a className="feature-doc-link" href={`${base}${doc.route}`}>Learn more <span aria-hidden="true">→</span></a>}</article>;
       })}
     </div>
   </div>;
@@ -348,15 +348,14 @@ function Apps() {
 
 const features = [
   { id: 'observability', title: 'Observability', points: [
-    ['Unified logging', 'View application logs in the dashboard.'],
-    ['Resource tracking', 'Track CPU and memory usage in monitoring.'],
-    ['Live network view', 'See network activity and connections live.'],
+    ['Unified logging', 'Indexed and centralized logging for all your applications.', true],
+    ['Resource tracking', 'Track CPU, GPU and RAM usage.', true],
+    ['Live network view', 'Real-time insights into network traffic.', true],
   ], description: 'Available observability data depends on the monitoring services deployed.' },
   { id: 'isolation', title: 'Isolation', lede: 'Keep app workloads organized and choose how they share network access and storage.', points: [
-    ['Containers', 'Kubarr runs chart-backed apps in Kubernetes pods, usually in an app-specific namespace. Containers in the same pod share its network; separate app pods and namespaces make workloads easier to manage, but they are not separate virtual machines or an absolute security boundary.'],
-    ['Cilium networking', 'App charts enable Kubernetes NetworkPolicies by default for selected ingress and egress paths, including gateway access, DNS and public-network egress. Cilium can enforce these policies if you install and configure it as your cluster’s CNI; Kubarr does not install Cilium. Another NetworkPolicy-capable CNI can also enforce them. Check chart rules and your CNI: namespaces alone do not block traffic, and the gateway’s app permissions do not protect direct service access inside the cluster.'],
-    ['Storage', 'Media libraries and downloads can use a shared NFS volume across apps. By default, many media charts also put each app’s config in a subdirectory of that same share; opt-in split storage puts config on a separate app PVC instead. A shared volume is accessible to apps that mount it, even in different namespaces, and a separate config claim does not isolate shared media. Check each chart’s storage layout and backups.'],
-    ['Networking', 'For VPN-enabled app charts, assign a VPN provider to an app and redeploy it to add a Gluetun sidecar in the app’s pod. Kubarr supports WireGuard and OpenVPN credentials; the sidecar routes that pod’s traffic through the configured VPN. Its firewall kill switch is enabled by default and can be overridden per app. VPN is off until configured, requires a working provider and /dev/net/tun on the node, and any allowed outbound subnets can bypass the tunnel.'],
+    ['Containers', 'Each app runs in an isolated container with minimum privileges.', true],
+    ['Storage', 'Managed storage per app, with minimum access for each application.', true],
+    ['Networking', 'Containers have restricted inbound access from other apps and outbound access to other apps and the internet.', true],
   ] },
 ];
 const observabilityImages = {

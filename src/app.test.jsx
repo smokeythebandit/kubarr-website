@@ -57,7 +57,7 @@ describe('one-page homepage', () => {
     expect([...container.querySelectorAll('#apps .feature-doc-link')].map(link => link.getAttribute('href'))).toEqual(['/kubarr-website/docs/apps/catalog/', '/kubarr-website/docs/apps/details/', '/kubarr-website/docs/apps/operations/']);
     expect(container.querySelector('#apps p, #apps figcaption, #apps .home-app-list')).toBeNull();
     expect(container.textContent).not.toContain('02 / THE CATALOG');
-    expect([...container.querySelectorAll('#features .home-chapter h3')].map(node => node.textContent)).toEqual(['Unified logging', 'Resource tracking', 'Live network view', 'Containers', 'Cilium networking', 'Storage', 'Networking']);
+    expect([...container.querySelectorAll('#features .home-chapter h3')].map(node => node.textContent)).toEqual(['Unified logging', 'Resource tracking', 'Live network view', 'Containers', 'Storage', 'Networking']);
     expect(container.textContent).not.toMatch(/03 — MODULARITY|Only the apps you need\.|Build your own stack\.|Workloads|APP CHARTS \/ COMPONENTS/);
     expect(container.textContent).not.toContain('01 — OBSERVABILITY');
     expect(container.textContent).not.toContain('Know what’s happening.');
@@ -69,7 +69,7 @@ describe('one-page homepage', () => {
     expect(container.querySelector('#apps').matches('section.home-apps')).toBe(true);
     expect(container.querySelector('#apps .home-feature-gallery').closest('section')).toBe(container.querySelector('#apps'));
     expect(container.querySelector('#observability')).toBeTruthy();
-    const galleries = [['observability', ['Unified logging', 'Resource tracking', 'Live network view']], ['isolation', ['Containers', 'Cilium networking', 'Storage', 'Networking']]];
+    const galleries = [['observability', ['Unified logging', 'Resource tracking', 'Live network view']], ['isolation', ['Containers', 'Storage', 'Networking']]];
     for (const [id, titles] of galleries) {
       const chapter = container.querySelector(`#${id}`);
       expect(chapter.getAttribute('aria-labelledby')).toBe(`${id}-title`);
@@ -127,9 +127,9 @@ describe('one-page homepage', () => {
     expect(css).toContain('.home-apps{padding:56px 0 64px;background:var(--home-gallery)}');
     expect(css).toContain('.home-feature-gallery-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}');
     expect(css).toContain('.home-feature-gallery-column .feature-screenshot a{border:0;border-radius:10px;background:none;box-shadow:none}');
-    expect(css).toContain('.home #features{scroll-margin-top:32px}');
+    expect(css).toContain('.home #features{scroll-margin-top:81px}');
     expect(css).toContain('.home #observability,.home #isolation{scroll-margin-top:80px}');
-    expect(css).toContain('.home #features,.home #apps{scroll-margin-top:24px}');
+    expect(css).toContain('.home #features{scroll-margin-top:65px}');
     expect(css).toContain('.home-feature-gallery-cards{grid-template-columns:1fr;gap:32px}');
     expect(css).toContain('--home-gallery:#fff');
     expect(css).toContain('--home-gallery:#182230');
